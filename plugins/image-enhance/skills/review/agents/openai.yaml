@@ -1,0 +1,7 @@
+interface:
+  display_name: "Review Image Folder"
+  short_description: "Review image folders with labeled contact sheets"
+  default_prompt: "Use $image-enhance:review to inspect and compare the images in this folder."
+
+policy:
+  allow_implicit_invocation: true

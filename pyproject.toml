@@ -1,0 +1,26 @@
+[project]
+name = "codex-enhance"
+version = "0.1.0"
+description = "Development and test environment for the Codex Enhance marketplace."
+requires-python = ">=3.11"
+dependencies = [
+    "pillow>=12.3,<13",
+    "pillow-heif>=1.5,<2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

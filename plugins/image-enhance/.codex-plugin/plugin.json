@@ -1,0 +1,35 @@
+{
+  "name": "image-enhance",
+  "version": "0.1.0",
+  "description": "Strengthen Codex image workflows with isolated generation and efficient folder review.",
+  "author": {
+    "name": "Xie Ningjun",
+    "url": "https://github.com/Ezio2000"
+  },
+  "homepage": "https://github.com/Ezio2000/codex-enhance#readme",
+  "repository": "https://github.com/Ezio2000/codex-enhance",
+  "license": "MIT",
+  "keywords": [
+    "image",
+    "imagegen",
+    "contact-sheet",
+    "visual-review"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Image Enhance",
+    "shortDescription": "Stronger image creation and folder review workflows.",
+    "longDescription": "Create or edit raster images through one isolated imagegen worker, and review image-heavy folders through cross-platform labeled contact sheets.",
+    "developerName": "Xie Ningjun",
+    "category": "Productivity",
+    "capabilities": [
+      "Isolated raster image generation",
+      "Cross-platform image folder review",
+      "Labeled contact-sheet mapping"
+    ],
+    "defaultPrompt": [
+      "Use $image-enhance:create to create a raster image through an isolated worker.",
+      "Review and compare all images in this folder."
+    ]
+  }
+}

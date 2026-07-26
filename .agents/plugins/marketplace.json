@@ -1,0 +1,20 @@
+{
+  "name": "codex-enhance",
+  "interface": {
+    "displayName": "Codex Enhance"
+  },
+  "plugins": [
+    {
+      "name": "image-enhance",
+      "source": {
+        "source": "local",
+        "path": "./plugins/image-enhance"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
