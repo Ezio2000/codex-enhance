@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+          - ubuntu-latest
+          - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+      - name: Install Python and dependencies
+        run: uv sync --locked --python 3.11
+      - name: Check formatting and lint
+        run: uv run ruff format --check . && uv run ruff check .
+      - name: Run tests
+        run: uv run pytest
+      - name: Verify locked runtime script
+        run: uv run --locked --script plugins/image-enhance/skills/review/scripts/contact_sheets.py --version
