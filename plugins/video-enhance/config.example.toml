@@ -1,0 +1,21 @@
+config_version = 1
+default_provider = "minimax"
+
+[providers.minimax]
+type = "minimax"
+enabled = true
+api_key = "replace-with-your-minimax-token-plan-key"
+base_url = "https://api.minimaxi.com/v1"
+model = "MiniMax-M3"
+
+[security]
+allowed_roots = [
+  "~/Desktop",
+  "~/.codex/attachments",
+]
+# Keep true for temporary provider uploads. Setting false intentionally
+# retains uploaded files and is reported by video_config_status/results.
+delete_remote_files = true
+
+[runtime]
+max_upload_mb = 512

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Consult External Model"
+  short_description: "Consult compatible external models securely"
+  default_prompt: "Use $model-enhance:consult to ask an external model for a focused second opinion."
+policy:
+  allow_implicit_invocation: true

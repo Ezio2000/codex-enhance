@@ -1,0 +1,7 @@
+interface:
+  display_name: "Analyze Videos"
+  short_description: "Inspect and analyze local videos securely"
+  default_prompt: "Use $video-enhance:analyze to inspect and analyze this local video."
+
+policy:
+  allow_implicit_invocation: true

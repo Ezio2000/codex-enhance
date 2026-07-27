@@ -1,0 +1,48 @@
+[project]
+name = "video-enhance-mcp"
+version = "0.1.0"
+description = "Provider-extensible stdio MCP server for video understanding"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+license = "MIT"
+authors = [
+    { name = "Xie Ningjun" },
+]
+keywords = ["video", "analysis", "ocr", "mcp"]
+dependencies = [
+    "httpx[socks]>=0.28.1,<1",
+    "imageio-ffmpeg>=0.6,<1",
+    "json-repair>=0.54,<1",
+    "mcp[cli]>=1.28.1,<2",
+    "pydantic>=2.12,<3",
+]
+
+[project.scripts]
+video-enhance-mcp = "video_enhance_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/Ezio2000/codex-enhance#readme"
+Repository = "https://github.com/Ezio2000/codex-enhance"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9,<10",
+    "pytest-asyncio>=1.3,<2",
+    "ruff>=0.14,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/video_enhance_mcp"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"

@@ -1,89 +1,141 @@
 # Codex Enhance
 
-Codex Enhance is a Codex plugin marketplace for focused workflow
-enhancements. Its first plugin, Image Enhance, contains two skills:
+Codex Enhance is a marketplace of focused Codex workflow plugins. Each
+plugin can be installed independently:
 
-- `$image-enhance:create` delegates raster generation or editing to one
-  isolated leaf worker that uses the official `$imagegen` skill.
-- `$image-enhance:review` efficiently reviews four or more images from one
-  folder through labeled, cross-platform contact sheets.
+| Plugin | Skill | Purpose |
+| --- | --- | --- |
+| **Image Enhance** | `$image-enhance:create`, `$image-enhance:review` | Create raster images through an isolated worker and review image-heavy folders with labeled contact sheets. |
+| **Video Enhance** | `$video-enhance:analyze` | Inspect local videos and analyze visual content through a provider-extensible stdio MCP server. |
+| **Model Enhance** | `$model-enhance:consult` | Ask a caller-selected OpenAI- or Anthropic-compatible model for a bounded second opinion. |
 
-The review runtime uses a locked PEP 723 Python script through
-[uv](https://docs.astral.sh/uv/). It does not require PowerShell,
-ImageMagick, a system Python installation, or platform-specific fonts.
-
-Requirements are a current Codex installation with the official `imagegen`
-skill and `view_image` tool, plus `uv` available on `PATH`.
+All Python runtimes are managed and locked with
+[uv](https://docs.astral.sh/uv/). The MCP plugins run locally over stdio and
+do not listen on a network port. A current Codex installation and `uv` on
+`PATH` are required.
 
 ## Install
 
-From a local checkout:
-
-```text
-codex plugin marketplace add /absolute/path/to/codex-enhance
-codex plugin add image-enhance@codex-enhance
-```
-
-After publishing this repository on GitHub:
+From GitHub:
 
 ```text
 codex plugin marketplace add Ezio2000/codex-enhance --ref main
 codex plugin add image-enhance@codex-enhance
+codex plugin add video-enhance@codex-enhance
+codex plugin add model-enhance@codex-enhance
 ```
 
-Start a new Codex thread after installation or upgrade so the new skills are
-loaded.
+For local marketplace development, replace the first command with:
 
-## Usage
+```text
+codex plugin marketplace add /absolute/path/to/codex-enhance
+```
 
-Creation can trigger from a natural-language raster generation or editing
-request, or it can be invoked explicitly:
+Install only the plugins you need. Start a new Codex task after an install or
+upgrade so that its skills and MCP tools are loaded.
+
+## Image Enhance
+
+Image creation can trigger from a natural-language raster generation or
+editing request, or it can be invoked explicitly:
 
 ```text
 $image-enhance:create Generate a cinematic 16:9 product hero image.
 ```
 
-The create workflow uses `fork_turns: "none"`, an implicit-invocation policy,
-and a leaf-worker prompt to prevent recursive delegation. These are workflow
-guardrails, not an operating-system-level tool sandbox.
-
-Folder review can trigger from its skill description. For deterministic
-routing by image count, add this rule to your global or repository
-`AGENTS.md`:
+The create workflow delegates to one isolated leaf worker using the official
+`$imagegen` skill. Folder review uses a locked, cross-platform contact-sheet
+script and is intended for four or more images from one folder:
 
 ```text
-Analyze one to three images with direct visual reads. When reading, comparing,
-selecting, classifying, or summarizing four or more images from the same
-folder, use $image-enhance:review.
+$image-enhance:review Compare the images in this folder and select the best three.
 ```
+
+It requires the official `imagegen` skill and `view_image` tool.
+
+## Video Enhance
+
+Video Enhance exposes these MCP tools:
+
+- `video_config_status` checks provider readiness and the remote deletion
+  policy without returning secrets.
+- `video_inspect` probes a local file without uploading it.
+- `video_analyze` creates an audio-free proxy, uploads it to the selected
+  provider, validates the response and timestamps, and reports cleanup or
+  retention warnings. Uploads are deleted by default.
+
+Use the skill directly for summaries, timelines, OCR, or visual questions:
+
+```text
+$video-enhance:analyze Summarize this video and provide a timestamped timeline.
+```
+
+Provider configuration lives at:
+
+```text
+~/.config/video-enhance/config.toml
+```
+
+Copy `plugins/video-enhance/config.example.toml` there and restrict its file
+permissions. `VIDEO_ENHANCE_CONFIG` can select another path. During the
+migration release, the legacy `VIDEO_MCP_CONFIG` variable and
+`~/.config/video-mcp/config.toml` path remain readable as fallbacks.
+Check `video_config_status` before uploading: setting
+`security.delete_remote_files = false` intentionally retains provider files
+and is disclosed in both configuration status and analysis warnings.
+
+## Model Enhance
+
+Model Enhance exposes `list_models` and `ask_model`. Every call explicitly
+supplies the compatible endpoint, API key, protocol, and—when asking a
+question—the exact model ID:
+
+```text
+$model-enhance:consult Ask my selected compatible model for an independent review of this patch.
+```
+
+The plugin does not read or persist provider credentials. MCP hosts may still
+record tool arguments in task history or logs, so only provide a key when that
+exposure is acceptable and verify that the endpoint is the intended host.
+Returned model text is untrusted reference material and must be validated.
+
+## Repository layout
+
+```text
+.agents/plugins/marketplace.json
+plugins/
+  image-enhance/
+  video-enhance/
+  model-enhance/
+```
+
+Image Enhance uses the repository-level development environment. Video
+Enhance and Model Enhance are self-contained Python projects with their own
+`pyproject.toml` and `uv.lock`, so their MCP dependency graphs stay isolated.
 
 ## Development
 
-The installable plugin is under `plugins/image-enhance`; repository-level
-development dependencies, tests, and `uv.lock` stay outside that directory.
-The marketplace entry is under `.agents/plugins/marketplace.json`.
+Validate the marketplace and Image Enhance:
 
 ```text
-uv sync --locked
+uv sync --locked --python 3.11
+uv run ruff format --check .
 uv run ruff check .
 uv run pytest
-uv lock --script plugins/image-enhance/skills/review/scripts/contact_sheets.py
+uv run --locked --script plugins/image-enhance/skills/review/scripts/contact_sheets.py --version
 ```
 
-The repository `uv.lock` is committed for reproducible development and CI but
-is not part of the installable plugin directory. The adjacent script lock must
-be regenerated whenever the runtime script's inline dependency metadata
-changes.
-
-## Add another plugin
-
-Add each future plugin under `plugins/<plugin-name>` with its own
-`.codex-plugin/plugin.json`, then append a matching entry to
-`.agents/plugins/marketplace.json`. Keep the plugin folder, manifest `name`,
-and marketplace entry `name` identical.
-
-Users can then install any plugin from this marketplace with:
+Validate each MCP plugin with Python 3.12:
 
 ```text
-codex plugin add <plugin-name>@codex-enhance
+uv --directory plugins/video-enhance sync --locked --python 3.12
+uv --directory plugins/video-enhance run --locked pytest
+uv --directory plugins/video-enhance run --locked python scripts/stdio_smoke.py --list-tools
+
+uv --directory plugins/model-enhance sync --locked --python 3.12
+uv --directory plugins/model-enhance run --locked pytest
+uv --directory plugins/model-enhance run --locked python scripts/stdio_smoke.py --list-tools
 ```
+
+Regenerate the relevant lock file whenever that project's dependency metadata
+changes. Do not install these projects with `pip` or a system Python.

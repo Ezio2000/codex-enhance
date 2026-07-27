@@ -22,11 +22,23 @@ jobs:
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
           enable-cache: true
-      - name: Install Python and dependencies
+      - name: Install root development dependencies
         run: uv sync --locked --python 3.11
       - name: Check formatting and lint
         run: uv run ruff format --check . && uv run ruff check .
-      - name: Run tests
+      - name: Run marketplace tests
         run: uv run pytest
       - name: Verify locked runtime script
         run: uv run --locked --script plugins/image-enhance/skills/review/scripts/contact_sheets.py --version
+      - name: Install Model Enhance dependencies
+        run: uv --directory plugins/model-enhance sync --locked --python 3.12
+      - name: Test Model Enhance
+        run: uv --directory plugins/model-enhance run --locked pytest
+      - name: Smoke-test Model Enhance stdio
+        run: uv --directory plugins/model-enhance run --locked python scripts/stdio_smoke.py --list-tools
+      - name: Install Video Enhance dependencies
+        run: uv --directory plugins/video-enhance sync --locked --python 3.12
+      - name: Test Video Enhance
+        run: uv --directory plugins/video-enhance run --locked pytest
+      - name: Smoke-test Video Enhance stdio
+        run: uv --directory plugins/video-enhance run --locked python scripts/stdio_smoke.py --list-tools

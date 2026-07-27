@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "model-enhance": {
+      "command": "uv",
+      "args": ["run", "--locked", "--no-dev", "model-enhance-mcp"],
+      "cwd": ".",
+      "startup_timeout_sec": 120,
+      "tool_timeout_sec": 240,
+      "default_tools_approval_mode": "prompt"
+    }
+  }
+}

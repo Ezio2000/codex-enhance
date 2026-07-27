@@ -1,0 +1,37 @@
+{
+  "name": "model-enhance",
+  "version": "0.1.0",
+  "description": "Consult OpenAI- or Anthropic-compatible models through a secure local stdio MCP server.",
+  "author": {
+    "name": "Xie Ningjun",
+    "url": "https://github.com/Ezio2000"
+  },
+  "homepage": "https://github.com/Ezio2000/codex-enhance",
+  "repository": "https://github.com/Ezio2000/codex-enhance",
+  "license": "MIT",
+  "keywords": [
+    "models",
+    "consultation",
+    "openai-compatible",
+    "anthropic-compatible",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Model Enhance",
+    "shortDescription": "Consult compatible external models securely.",
+    "longDescription": "Adds a secure local Model Context Protocol server for bounded consultation, independent review, response comparison, and compatible model discovery.",
+    "developerName": "Xie Ningjun",
+    "category": "Developer Tools",
+    "capabilities": [
+      "MCP server",
+      "External model delegation"
+    ],
+    "defaultPrompt": [
+      "Use $model-enhance:consult to review this implementation.",
+      "Use $model-enhance:consult to compare this answer.",
+      "Use $model-enhance:consult to list available models."
+    ]
+  }
+}

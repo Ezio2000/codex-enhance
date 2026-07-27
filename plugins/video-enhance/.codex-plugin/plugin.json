@@ -1,0 +1,36 @@
+{
+  "name": "video-enhance",
+  "version": "0.1.0",
+  "description": "Strengthen Codex video workflows with local inspection and provider-backed analysis.",
+  "author": {
+    "name": "Xie Ningjun",
+    "url": "https://github.com/Ezio2000"
+  },
+  "homepage": "https://github.com/Ezio2000/codex-enhance#readme",
+  "repository": "https://github.com/Ezio2000/codex-enhance",
+  "license": "MIT",
+  "keywords": [
+    "video",
+    "analysis",
+    "ocr",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Video Enhance",
+    "shortDescription": "Inspect and analyze local video files securely.",
+    "longDescription": "Inspect local video metadata and perform provider-backed video understanding with secure configuration, normalized visual proxies, timelines, OCR, and validated structured results.",
+    "developerName": "Xie Ningjun",
+    "category": "Productivity",
+    "capabilities": [
+      "Local video inspection",
+      "Provider-backed video analysis",
+      "Timeline and screen OCR extraction"
+    ],
+    "defaultPrompt": [
+      "Use $video-enhance:analyze to inspect this video first, then analyze it with the most suitable profile.",
+      "Extract a precise timeline and visible on-screen text from this video."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}
