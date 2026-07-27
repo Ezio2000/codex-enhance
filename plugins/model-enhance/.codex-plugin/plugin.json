@@ -1,6 +1,6 @@
 {
   "name": "model-enhance",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Consult OpenAI- or Anthropic-compatible models through a secure local stdio MCP server.",
   "author": {
     "name": "Xie Ningjun",
@@ -24,6 +24,8 @@
     "longDescription": "Adds a secure local Model Context Protocol server for bounded consultation, independent review, response comparison, and compatible model discovery.",
     "developerName": "Xie Ningjun",
     "category": "Developer Tools",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png",
     "capabilities": [
       "MCP server",
       "External model delegation"

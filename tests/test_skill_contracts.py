@@ -4,6 +4,8 @@ import json
 import tomllib
 from pathlib import Path
 
+from PIL import Image
+
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPOSITORY_ROOT / "plugins"
 IMAGE_PLUGIN_ROOT = PLUGINS_ROOT / "image-enhance"
@@ -79,6 +81,33 @@ def test_marketplace_contains_all_enhance_plugins() -> None:
         assert entry["policy"]["installation"] == "AVAILABLE"
         assert entry["policy"]["authentication"] == expected_authentication[name]
         assert entry["category"] == plugin["interface"]["category"]
+
+
+def test_plugin_icons_are_pixel_art_on_pure_white() -> None:
+    for plugin_name in ("image-enhance", "video-enhance", "model-enhance"):
+        plugin_root = PLUGINS_ROOT / plugin_name
+        manifest = json.loads(
+            (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
+        interface = manifest["interface"]
+        icon_path = plugin_root / interface["composerIcon"].removeprefix("./")
+        logo_path = plugin_root / interface["logo"].removeprefix("./")
+
+        assert interface["composerIcon"] == "./assets/icon.png"
+        assert interface["logo"] == "./assets/logo.png"
+
+        with Image.open(icon_path) as icon_source:
+            icon = icon_source.convert("RGB")
+        with Image.open(logo_path) as logo_source:
+            logo = logo_source.convert("RGB")
+
+        assert icon.size == (64, 64)
+        assert logo.size == (1024, 1024)
+        assert icon.getcolors(maxcolors=16) is not None
+        assert logo == icon.resize((1024, 1024), Image.Resampling.NEAREST)
+
+        corners = ((0, 0), (63, 0), (0, 63), (63, 63))
+        assert all(icon.getpixel(point) == (255, 255, 255) for point in corners)
 
 
 def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() -> None:

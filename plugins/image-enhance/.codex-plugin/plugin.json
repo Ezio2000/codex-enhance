@@ -1,6 +1,6 @@
 {
   "name": "image-enhance",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Strengthen Codex image workflows with isolated generation and efficient folder review.",
   "author": {
     "name": "Xie Ningjun",
@@ -22,6 +22,8 @@
     "longDescription": "Create or edit raster images through one isolated imagegen worker, and review image-heavy folders through cross-platform labeled contact sheets.",
     "developerName": "Xie Ningjun",
     "category": "Productivity",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png",
     "capabilities": [
       "Isolated raster image generation",
       "Cross-platform image folder review",
