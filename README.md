@@ -3,8 +3,8 @@
 Codex Enhance is a Codex plugin marketplace for focused workflow
 enhancements. Its first plugin, Image Enhance, contains two skills:
 
-- `$image-enhance:create` explicitly delegates raster generation or editing to
-  one isolated leaf worker that uses the official `$imagegen` skill.
+- `$image-enhance:create` delegates raster generation or editing to one
+  isolated leaf worker that uses the official `$imagegen` skill.
 - `$image-enhance:review` efficiently reviews four or more images from one
   folder through labeled, cross-platform contact sheets.
 
@@ -36,13 +36,14 @@ loaded.
 
 ## Usage
 
-Creation is intentionally explicit:
+Creation can trigger from a natural-language raster generation or editing
+request, or it can be invoked explicitly:
 
 ```text
 $image-enhance:create Generate a cinematic 16:9 product hero image.
 ```
 
-The create workflow uses `fork_turns: "none"`, an explicit-only Skill policy,
+The create workflow uses `fork_turns: "none"`, an implicit-invocation policy,
 and a leaf-worker prompt to prevent recursive delegation. These are workflow
 guardrails, not an operating-system-level tool sandbox.
 

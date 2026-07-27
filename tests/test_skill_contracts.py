@@ -7,7 +7,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = REPOSITORY_ROOT / "plugins" / "image-enhance"
 
 
-def test_create_is_explicit_and_worker_prompt_is_non_recursive() -> None:
+def test_create_allows_implicit_invocation_and_worker_prompt_is_non_recursive() -> None:
     skill = (PLUGIN_ROOT / "skills" / "create" / "SKILL.md").read_text(encoding="utf-8")
     metadata = (PLUGIN_ROOT / "skills" / "create" / "agents" / "openai.yaml").read_text(
         encoding="utf-8"
@@ -24,7 +24,7 @@ def test_create_is_explicit_and_worker_prompt_is_non_recursive() -> None:
     assert '"status":"failed"' in worker_template
     assert "$image-enhance:create" not in worker_template
     assert "Never spawn a replacement worker." in skill
-    assert "allow_implicit_invocation: false" in metadata
+    assert "allow_implicit_invocation: true" in metadata
 
 
 def test_review_is_cross_platform_and_uv_locked() -> None:

@@ -1,6 +1,6 @@
 ---
 name: create
-description: Explicit-only raster image generation and editing through one isolated leaf worker. The worker invokes the official $imagegen skill, processes one or more deliverables serially, saves final files, and returns metadata only. Use only when the user explicitly invokes $image-enhance:create. Do not use for SVG or deterministic code-native graphics.
+description: Raster image generation and editing through one isolated leaf worker. The worker invokes the official $imagegen skill, processes one or more deliverables serially, saves final files, and returns metadata only. Use when the user asks to generate or edit raster images, including when they explicitly invoke $image-enhance:create. Do not use for SVG or deterministic code-native graphics.
 ---
 
 # Create Images in an Isolated Worker
