@@ -25,8 +25,6 @@ chmod 600 ~/.config/video-enhance/config.toml
 
 然后编辑 `providers.minimax.api_key`。密钥不会进入 Plugin、Codex MCP 清单、工具参数或日志。配置格式见 [config.example.toml](./config.example.toml)。
 
-为方便从旧版本迁移，本版本暂时兼容 `VIDEO_MCP_CONFIG` 和 `~/.config/video-mcp/config.toml`。解析优先级依次为：`VIDEO_ENHANCE_CONFIG`、`VIDEO_MCP_CONFIG`、已存在的新默认路径、已存在的旧默认路径、新默认路径。建议尽快迁移到新名称；旧名称将在后续版本移除。
-
 ## Provider 抽象
 
 `core/contracts.py` 定义 `VideoProvider`、能力声明、统一请求和响应；`core/pipeline.py` 只依赖这些协议。MiniMax 的 Files API、`mm_file://`、M3 tool call、profile 参数映射和远端删除全部位于 `providers/minimax/`。新增 provider 时实现同一协议并在 `providers/registry.py` 注册即可，无需新增 MCP 工具。

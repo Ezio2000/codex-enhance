@@ -77,9 +77,7 @@ Provider configuration lives at:
 ```
 
 Copy `plugins/video-enhance/config.example.toml` there and restrict its file
-permissions. `VIDEO_ENHANCE_CONFIG` can select another path. During the
-migration release, the legacy `VIDEO_MCP_CONFIG` variable and
-`~/.config/video-mcp/config.toml` path remain readable as fallbacks.
+permissions. `VIDEO_ENHANCE_CONFIG` can select another path.
 Check `video_config_status` before uploading: setting
 `security.delete_remote_files = false` intentionally retains provider files
 and is disclosed in both configuration status and analysis warnings.

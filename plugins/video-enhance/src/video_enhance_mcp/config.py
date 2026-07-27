@@ -19,7 +19,6 @@ from pydantic import (
 from .errors import ConfigurationError
 
 DEFAULT_CONFIG_PATH = Path.home() / ".config" / "video-enhance" / "config.toml"
-LEGACY_CONFIG_PATH = Path.home() / ".config" / "video-mcp" / "config.toml"
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 
@@ -101,15 +100,6 @@ def config_path() -> Path:
     override = os.environ.get("VIDEO_ENHANCE_CONFIG")
     if override:
         return Path(override).expanduser()
-
-    legacy_override = os.environ.get("VIDEO_MCP_CONFIG")
-    if legacy_override:
-        return Path(legacy_override).expanduser()
-
-    if DEFAULT_CONFIG_PATH.is_file():
-        return DEFAULT_CONFIG_PATH
-    if LEGACY_CONFIG_PATH.is_file():
-        return LEGACY_CONFIG_PATH
     return DEFAULT_CONFIG_PATH
 
 

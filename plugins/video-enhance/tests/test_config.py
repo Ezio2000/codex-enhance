@@ -37,7 +37,6 @@ allowed_roots = ["~/Desktop"]
 @pytest.fixture(autouse=True)
 def _clear_config_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("VIDEO_ENHANCE_CONFIG", raising=False)
-    monkeypatch.delenv("VIDEO_MCP_CONFIG", raising=False)
 
 
 def test_config_file_loads_secret_as_secret_str(
@@ -148,55 +147,17 @@ async def test_config_status_exposes_remote_deletion_policy(
     assert status.delete_remote_files is False
 
 
-def test_new_environment_override_wins_over_legacy(
+def test_environment_override_selects_config_path(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    new_path = tmp_path / "new.toml"
-    legacy_path = tmp_path / "legacy.toml"
-    monkeypatch.setenv("VIDEO_ENHANCE_CONFIG", str(new_path))
-    monkeypatch.setenv("VIDEO_MCP_CONFIG", str(legacy_path))
-    assert config_path() == new_path
+    override_path = tmp_path / "override.toml"
+    monkeypatch.setenv("VIDEO_ENHANCE_CONFIG", str(override_path))
+    assert config_path() == override_path
 
 
-def test_legacy_environment_override_is_supported(
+def test_default_config_path_is_canonical(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    legacy_path = tmp_path / "legacy.toml"
-    monkeypatch.setenv("VIDEO_MCP_CONFIG", str(legacy_path))
-    assert config_path() == legacy_path
-
-
-def test_existing_new_default_wins_over_existing_legacy_default(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    new_path = tmp_path / "video-enhance" / "config.toml"
-    legacy_path = tmp_path / "video-mcp" / "config.toml"
-    new_path.parent.mkdir()
-    legacy_path.parent.mkdir()
-    new_path.touch()
-    legacy_path.touch()
-    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", new_path)
-    monkeypatch.setattr(config_module, "LEGACY_CONFIG_PATH", legacy_path)
-    assert config_path() == new_path
-
-
-def test_existing_legacy_default_is_used_when_new_default_is_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    new_path = tmp_path / "video-enhance" / "config.toml"
-    legacy_path = tmp_path / "video-mcp" / "config.toml"
-    legacy_path.parent.mkdir()
-    legacy_path.touch()
-    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", new_path)
-    monkeypatch.setattr(config_module, "LEGACY_CONFIG_PATH", legacy_path)
-    assert config_path() == legacy_path
-
-
-def test_new_default_is_returned_when_neither_default_exists(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    new_path = tmp_path / "video-enhance" / "config.toml"
-    legacy_path = tmp_path / "video-mcp" / "config.toml"
-    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", new_path)
-    monkeypatch.setattr(config_module, "LEGACY_CONFIG_PATH", legacy_path)
-    assert config_path() == new_path
+    canonical_path = tmp_path / "video-enhance" / "config.toml"
+    monkeypatch.setattr(config_module, "DEFAULT_CONFIG_PATH", canonical_path)
+    assert config_path() == canonical_path

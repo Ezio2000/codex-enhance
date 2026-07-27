@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -120,3 +121,40 @@ def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() 
         assert ".venv/" in gitignore
         assert "__pycache__/" in gitignore
         assert "*.py[cod]" in gitignore
+
+
+def test_mcp_plugin_versions_match_their_locked_projects() -> None:
+    for plugin_name in ("video-enhance", "model-enhance"):
+        plugin_root = PLUGINS_ROOT / plugin_name
+        manifest = json.loads(
+            (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+        )
+        project = tomllib.loads(
+            (plugin_root / "pyproject.toml").read_text(encoding="utf-8")
+        )
+        lock = tomllib.loads((plugin_root / "uv.lock").read_text(encoding="utf-8"))
+        locked_project = next(
+            package
+            for package in lock["package"]
+            if package["name"] == project["project"]["name"]
+        )
+        script_target = next(iter(project["project"]["scripts"].values()))
+        package_name = script_target.partition(":")[0].partition(".")[0]
+        package_init = (plugin_root / "src" / package_name / "__init__.py").read_text(
+            encoding="utf-8"
+        )
+
+        assert manifest["version"] == project["project"]["version"]
+        assert locked_project["version"] == project["project"]["version"]
+        assert f'__version__ = "{project["project"]["version"]}"' in package_init
+        assert (plugin_root / ".python-version").read_text(encoding="utf-8") == "3.12\n"
+
+
+def test_video_config_uses_one_canonical_resolution_contract() -> None:
+    config_source = (
+        PLUGINS_ROOT / "video-enhance" / "src" / "video_enhance_mcp" / "config.py"
+    ).read_text(encoding="utf-8")
+
+    assert config_source.count("os.environ.get(") == 1
+    assert 'os.environ.get("VIDEO_ENHANCE_CONFIG")' in config_source
+    assert 'Path.home() / ".config" / "video-enhance" / "config.toml"' in config_source
