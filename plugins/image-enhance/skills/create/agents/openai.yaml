@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $image-enhance:create to generate or edit raster images and return saved-file metadata only."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
