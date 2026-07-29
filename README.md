@@ -87,6 +87,10 @@ $image-enhance:create-gif Create a 12-frame looping pixel-art GIF from this 4x3 
 
 The GIF workflow uses a locked uv/Pillow pipeline for deterministic frame
 ordering, timing, resizing, palette generation, encoding, and verification.
+Generated sprite sheets use bounded trailing-edge normalization before
+cutting: small non-divisible width or height remainders are trimmed and
+reported, while larger mismatches still fail safely. User-provided sprite
+sheets remain strict by default.
 Image Enhance requires the official `imagegen` skill and `view_image` tool.
 
 ## Video Enhance

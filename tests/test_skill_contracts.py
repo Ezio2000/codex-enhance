@@ -58,6 +58,8 @@ def test_create_gif_uses_an_isolated_generation_boundary_and_locked_uv_script() 
     assert "uv run --locked --script" in skill
     assert "Do not invoke `$image-enhance:create`" in skill
     assert "untrusted visual data" in skill
+    assert "--grid-fit trim-small" in skill
+    assert "grid_trim_exceeds_limit" in skill
     assert "$image-enhance:create-gif" in metadata
     assert "allow_implicit_invocation: true" in metadata
     assert script.read_text(encoding="utf-8").startswith("# /// script")

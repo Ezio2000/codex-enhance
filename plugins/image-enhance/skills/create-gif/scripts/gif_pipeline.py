@@ -19,7 +19,7 @@ from typing import Any
 
 from PIL import Image, ImageSequence, UnidentifiedImageError
 
-CLI_VERSION = "1.0.0"
+CLI_VERSION = "1.1.0"
 MANIFEST_SCHEMA = "image-enhance/gif-animation/v1"
 RESULT_SCHEMA = "image-enhance/gif-result/v1"
 SUPPORTED_FRAME_EXTENSIONS = frozenset(
@@ -28,6 +28,8 @@ SUPPORTED_FRAME_EXTENSIONS = frozenset(
 MAX_FRAMES = 500
 MAX_TOTAL_PIXELS = 100_000_000
 MAX_DURATION_MS = 60_000
+DEFAULT_MAX_TRIM_PIXELS = 4
+DEFAULT_MAX_TRIM_RATIO = 0.005
 TRANSPARENCY_INDEX = 255
 NATURAL_PARTS = re.compile(r"(\d+)")
 
@@ -405,11 +407,18 @@ def inspect_gif(path: Path) -> dict[str, Any]:
     }
 
 
-def _result(output: Path, warnings: Sequence[str]) -> dict[str, Any]:
+def _result(
+    output: Path,
+    warnings: Sequence[str],
+    *,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     result = inspect_gif(output)
     result.pop("inputPath")
     result["outputPath"] = str(output)
     result["warnings"] = list(warnings)
+    if metadata:
+        result.update(metadata)
     return result
 
 
@@ -420,6 +429,7 @@ def _build_common(
     args: argparse.Namespace,
     loop: int,
     warnings: Sequence[str],
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     normalized = _resize_frames(
         frames,
@@ -437,7 +447,7 @@ def _build_common(
         colors=args.colors,
         pixel_art=args.pixel_art,
     )
-    return _result(output, warnings)
+    return _result(output, warnings, metadata=metadata)
 
 
 def command_build(args: argparse.Namespace) -> dict[str, Any]:
@@ -464,17 +474,99 @@ def command_build(args: argparse.Namespace) -> dict[str, Any]:
     return _build_common(frames, durations, args=args, loop=loop, warnings=warnings)
 
 
+def _normalize_sprite_sheet(
+    sheet: Image.Image,
+    *,
+    columns: int,
+    rows: int,
+    grid_fit: str,
+    max_trim_pixels: int,
+    max_trim_ratio: float,
+) -> tuple[Image.Image, dict[str, Any], list[str]]:
+    if columns <= 0 or rows <= 0:
+        raise GifPipelineError("invalid_grid", "Columns and rows must be positive.")
+    if sheet.width < columns or sheet.height < rows:
+        raise GifPipelineError(
+            "invalid_grid",
+            f"Sheet {sheet.width}x{sheet.height} is smaller than the "
+            f"{columns}x{rows} grid.",
+        )
+
+    trim_right = sheet.width % columns
+    trim_bottom = sheet.height % rows
+    source_size = [sheet.width, sheet.height]
+
+    if trim_right or trim_bottom:
+        if grid_fit == "strict":
+            raise GifPipelineError(
+                "grid_not_divisible",
+                f"Sheet {sheet.width}x{sheet.height} is not evenly divisible by "
+                f"{columns} columns and {rows} rows. Use --grid-fit trim-small "
+                "only when trailing-edge trimming is acceptable.",
+            )
+        if max_trim_pixels < 0:
+            raise GifPipelineError(
+                "invalid_trim_limit", "Max trim pixels must be zero or greater."
+            )
+        if max_trim_ratio <= 0 or max_trim_ratio > 0.1:
+            raise GifPipelineError(
+                "invalid_trim_limit",
+                "Max trim ratio must be greater than zero and no more than 0.1.",
+            )
+
+        width_limit = min(
+            max_trim_pixels,
+            max(1, math.floor(sheet.width * max_trim_ratio)),
+        )
+        height_limit = min(
+            max_trim_pixels,
+            max(1, math.floor(sheet.height * max_trim_ratio)),
+        )
+        if trim_right > width_limit or trim_bottom > height_limit:
+            raise GifPipelineError(
+                "grid_trim_exceeds_limit",
+                f"Required trim right={trim_right}px, bottom={trim_bottom}px exceeds "
+                f"limits right={width_limit}px, bottom={height_limit}px.",
+            )
+        sheet = sheet.crop((0, 0, sheet.width - trim_right, sheet.height - trim_bottom))
+
+    cell_width = sheet.width // columns
+    cell_height = sheet.height // rows
+    metadata = {
+        "sheetNormalization": {
+            "sourceSize": source_size,
+            "normalizedSize": [sheet.width, sheet.height],
+            "trimmedPixels": {
+                "right": trim_right,
+                "bottom": trim_bottom,
+            },
+            "cellSize": [cell_width, cell_height],
+            "columns": columns,
+            "rows": rows,
+        }
+    }
+    warnings = []
+    if trim_right or trim_bottom:
+        warnings.append(
+            f"Normalized sprite sheet by trimming right={trim_right}px "
+            f"and bottom={trim_bottom}px."
+        )
+    return sheet, metadata, warnings
+
+
 def command_from_sheet(args: argparse.Namespace) -> dict[str, Any]:
     if args.columns <= 0 or args.rows <= 0:
         raise GifPipelineError("invalid_grid", "Columns and rows must be positive.")
     source_path = _resolve_input(args.source)
     sheet = _open_still(source_path)
-    if sheet.width % args.columns or sheet.height % args.rows:
-        raise GifPipelineError(
-            "grid_not_divisible",
-            f"Sheet {sheet.width}x{sheet.height} is not evenly divisible by "
-            f"{args.columns} columns and {args.rows} rows.",
-        )
+    sheet, metadata, grid_warnings = _normalize_sprite_sheet(
+        sheet,
+        columns=args.columns,
+        rows=args.rows,
+        grid_fit=args.grid_fit,
+        max_trim_pixels=args.max_trim_pixels,
+        max_trim_ratio=args.max_trim_ratio,
+    )
     cell_width = sheet.width // args.columns
     cell_height = sheet.height // args.rows
     frames = [
@@ -490,14 +582,19 @@ def command_from_sheet(args: argparse.Namespace) -> dict[str, Any]:
         for column in range(args.columns)
     ]
     _validate_limits(frames)
-    durations, warnings = _parse_durations(
+    durations, duration_warnings = _parse_durations(
         args.durations,
         frame_count=len(frames),
         default_ms=args.default_duration,
     )
     _validate_loop(args.loop)
     return _build_common(
-        frames, durations, args=args, loop=args.loop, warnings=warnings
+        frames,
+        durations,
+        args=args,
+        loop=args.loop,
+        warnings=[*grid_warnings, *duration_warnings],
+        metadata=metadata,
     )
 
 
@@ -574,6 +671,24 @@ def build_parser() -> argparse.ArgumentParser:
     sheet.add_argument("--source", required=True, help="Sprite-sheet image path.")
     sheet.add_argument("--columns", required=True, type=int)
     sheet.add_argument("--rows", required=True, type=int)
+    sheet.add_argument(
+        "--grid-fit",
+        choices=("strict", "trim-small"),
+        default="strict",
+        help="Reject non-divisible sheets or safely trim small trailing remainders.",
+    )
+    sheet.add_argument(
+        "--max-trim-pixels",
+        type=int,
+        default=DEFAULT_MAX_TRIM_PIXELS,
+        help="Maximum trailing pixels removable per dimension (default: 4).",
+    )
+    sheet.add_argument(
+        "--max-trim-ratio",
+        type=float,
+        default=DEFAULT_MAX_TRIM_RATIO,
+        help="Maximum removable fraction per dimension (default: 0.005).",
+    )
     sheet.add_argument("--durations", help="One or comma-separated frame durations.")
     sheet.add_argument("--default-duration", type=int, default=100)
     sheet.add_argument("--loop", type=int, default=0)

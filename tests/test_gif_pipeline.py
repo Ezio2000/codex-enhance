@@ -277,3 +277,81 @@ def test_rejects_sprite_sheet_that_is_not_evenly_divisible(
     assert payload["status"] == "failed"
     assert payload["error"]["code"] == "grid_not_divisible"
     assert not (tmp_path / "bad.gif").exists()
+
+
+def test_trim_small_normalizes_reported_generator_dimensions(
+    tmp_path: Path, capsys
+) -> None:
+    colors = [
+        (30 + index * 20, 210 - index * 15, 40 + index * 12, 255) for index in range(8)
+    ]
+    sheet = Image.new("RGBA", (1774, 887), (255, 0, 255, 255))
+    for index, color in enumerate(colors):
+        x = (index % 4) * 443
+        y = (index // 4) * 443
+        sheet.paste(color, (x, y, x + 443, y + 443))
+    sheet_path = tmp_path / "generated-sheet.png"
+    sheet.save(sheet_path)
+    output = tmp_path / "trimmed.gif"
+
+    exit_code, payload = _run(
+        [
+            "from-sheet",
+            "--source",
+            str(sheet_path),
+            "--columns",
+            "4",
+            "--rows",
+            "2",
+            "--grid-fit",
+            "trim-small",
+            "--pixel-art",
+            "--colors",
+            "32",
+            "--output",
+            str(output),
+        ],
+        capsys,
+    )
+
+    assert exit_code == 0
+    assert payload["width"] == 443
+    assert payload["height"] == 443
+    assert payload["frameCount"] == 8
+    assert payload["sheetNormalization"] == {
+        "sourceSize": [1774, 887],
+        "normalizedSize": [1772, 886],
+        "trimmedPixels": {"right": 2, "bottom": 1},
+        "cellSize": [443, 443],
+        "columns": 4,
+        "rows": 2,
+    }
+    assert payload["warnings"] == [
+        "Normalized sprite sheet by trimming right=2px and bottom=1px."
+    ]
+
+
+def test_trim_small_rejects_remainders_above_limit(tmp_path: Path, capsys) -> None:
+    sheet_path = tmp_path / "too-wide.png"
+    _write_frame(sheet_path, (20, 30, 40, 255), size=(110, 50))
+
+    exit_code, payload = _run(
+        [
+            "from-sheet",
+            "--source",
+            str(sheet_path),
+            "--columns",
+            "8",
+            "--rows",
+            "2",
+            "--grid-fit",
+            "trim-small",
+            "--output",
+            str(tmp_path / "unsafe.gif"),
+        ],
+        capsys,
+    )
+
+    assert exit_code == 2
+    assert payload["error"]["code"] == "grid_trim_exceeds_limit"
+    assert not (tmp_path / "unsafe.gif").exists()
