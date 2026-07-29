@@ -1,6 +1,8 @@
 interface:
   display_name: "Create Images"
   short_description: "Create images through one isolated leaf worker"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
   default_prompt: "Use $image-enhance:create to generate or edit raster images and return saved-file metadata only."
 
 policy:

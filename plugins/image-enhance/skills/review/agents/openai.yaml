@@ -1,6 +1,8 @@
 interface:
   display_name: "Review Image Folder"
   short_description: "Review image folders with labeled contact sheets"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
   default_prompt: "Use $image-enhance:review to inspect and compare the images in this folder."
 
 policy:

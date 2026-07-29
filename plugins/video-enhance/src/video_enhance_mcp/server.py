@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from base64 import b64encode
+from importlib.resources import files
 from typing import Annotated
 
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
+from mcp.types import Icon
 from pydantic import Field
 
 from .config import config_path, load_settings
@@ -14,8 +17,26 @@ from .core.profiles import AnalysisOperation, RequestedProfile
 from .core.schemas import ConfigStatus, VideoAnalyzeResult, VideoInspectResult
 from .errors import ConfigurationError, VideoEnhanceError
 
+
+def _server_icons() -> list[Icon]:
+    package = files("video_enhance_mcp")
+    icons = []
+    for filename, size in (("mcp-icon.png", "64x64"), ("mcp-logo.png", "1024x1024")):
+        content = package.joinpath(f"assets/{filename}").read_bytes()
+        encoded = b64encode(content).decode("ascii")
+        icons.append(
+            Icon(
+                src=f"data:image/png;base64,{encoded}",
+                mimeType="image/png",
+                sizes=[size],
+            )
+        )
+    return icons
+
+
 mcp = FastMCP(
     "Video Enhance",
+    icons=_server_icons(),
     instructions=(
         "Inspect local videos first, then analyze through a configured provider. "
         "The server uses stdio, creates an audio-free MP4 proxy, validates structured "

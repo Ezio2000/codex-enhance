@@ -1,7 +1,7 @@
 {
   "name": "image-enhance",
-  "version": "0.1.2",
-  "description": "Strengthen Codex image workflows with isolated generation and efficient folder review.",
+  "version": "0.1.2+codex.20260729104357",
+  "description": "Strengthen Codex image workflows with isolated generation, animated GIF creation, and efficient folder review.",
   "author": {
     "name": "Xie Ningjun",
     "url": "https://github.com/Ezio2000"
@@ -12,25 +12,30 @@
   "keywords": [
     "image",
     "imagegen",
+    "gif",
+    "animation",
     "contact-sheet",
     "visual-review"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Image Enhance",
-    "shortDescription": "Stronger image creation and folder review workflows.",
-    "longDescription": "Create or edit raster images through one isolated imagegen worker, and review image-heavy folders through cross-platform labeled contact sheets.",
+    "shortDescription": "Stronger image creation, GIF, and folder review workflows.",
+    "longDescription": "Create or edit raster images through one isolated imagegen worker, build and verify animated GIFs with a deterministic cross-platform pipeline, and review image-heavy folders through labeled contact sheets.",
     "developerName": "Xie Ningjun",
     "category": "Productivity",
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/logo.png",
     "capabilities": [
       "Isolated raster image generation",
+      "Animated GIF creation and editing",
+      "Sprite-sheet and frame-sequence assembly",
       "Cross-platform image folder review",
       "Labeled contact-sheet mapping"
     ],
     "defaultPrompt": [
       "Use $image-enhance:create to create a raster image through an isolated worker.",
+      "Use $image-enhance:create-gif to build a looping GIF from generated art, a sprite sheet, or image frames.",
       "Review and compare all images in this folder."
     ]
   }

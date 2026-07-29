@@ -1,0 +1,9 @@
+interface:
+  display_name: "Create GIFs"
+  short_description: "Create and optimize animated GIFs from images"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  default_prompt: "Use $image-enhance:create-gif to create a looping animated GIF from generated art, a sprite sheet, or image frames."
+
+policy:
+  allow_implicit_invocation: true

@@ -3,6 +3,7 @@ import json
 import pytest
 
 from video_enhance_mcp.core.validation import parse_analysis_payload, validate_coverage
+from video_enhance_mcp.server import mcp
 
 
 def _payload(*, end_ms: int = 10_000) -> dict[str, object]:
@@ -21,6 +22,15 @@ def _payload(*, end_ms: int = 10_000) -> dict[str, object]:
         "observations": [],
         "uncertainties": [],
     }
+
+
+def test_server_advertises_its_pixel_art_icon() -> None:
+    options = mcp._mcp_server.create_initialization_options()
+    assert options.icons is not None
+    assert len(options.icons) == 2
+    assert all(icon.src.startswith("data:image/png;base64,") for icon in options.icons)
+    assert all(icon.mimeType == "image/png" for icon in options.icons)
+    assert [icon.sizes for icon in options.icons] == [["64x64"], ["1024x1024"]]
 
 
 def test_parse_allows_only_a_full_json_object() -> None:

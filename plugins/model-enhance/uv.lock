@@ -296,7 +296,7 @@ wheels = [
 
 [[package]]
 name = "model-enhance-mcp"
-version = "0.1.1"
+version = "0.1.1+codex.20260727171933"
 source = { editable = "." }
 dependencies = [
     { name = "httpx", extra = ["socks"] },

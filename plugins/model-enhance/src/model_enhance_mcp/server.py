@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from base64 import b64encode
+from importlib.resources import files
 from typing import Annotated
 
 from mcp.server.fastmcp import FastMCP
-from mcp.types import CallToolResult, TextContent, ToolAnnotations
+from mcp.types import CallToolResult, Icon, TextContent, ToolAnnotations
 from pydantic import Field, SecretStr
 
 from .clients import CompatibleModelClient
@@ -14,8 +16,26 @@ from .config import AuthMode, build_provider_settings
 from .errors import ConfigurationError
 from .schemas import ModelResult, ModelsResult, ProtocolName
 
+
+def _server_icons() -> list[Icon]:
+    package = files("model_enhance_mcp")
+    icons = []
+    for filename, size in (("mcp-icon.png", "64x64"), ("mcp-logo.png", "1024x1024")):
+        content = package.joinpath(f"assets/{filename}").read_bytes()
+        encoded = b64encode(content).decode("ascii")
+        icons.append(
+            Icon(
+                src=f"data:image/png;base64,{encoded}",
+                mimeType="image/png",
+                sizes=[size],
+            )
+        )
+    return icons
+
+
 mcp = FastMCP(
     "Model Enhance",
+    icons=_server_icons(),
     instructions=(
         "Every call must explicitly supply base_url, api_key, and model "
         "(for ask_model). The server never loads or stores credentials. "

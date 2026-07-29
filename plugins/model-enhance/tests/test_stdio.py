@@ -22,7 +22,7 @@ async def test_stdio_server_exposes_expected_tools(tmp_path: Path) -> None:
             write_stream,
         ):
             async with ClientSession(read_stream, write_stream) as session:
-                await session.initialize()
+                initialization = await session.initialize()
                 result = await session.list_tools()
                 missing_key = await session.call_tool(
                     "ask_model",
@@ -66,6 +66,17 @@ async def test_stdio_server_exposes_expected_tools(tmp_path: Path) -> None:
                 )
 
     tools = {tool.name: tool for tool in result.tools}
+    assert initialization.serverInfo.icons is not None
+    assert len(initialization.serverInfo.icons) == 2
+    assert all(
+        icon.src.startswith("data:image/png;base64,")
+        for icon in initialization.serverInfo.icons
+    )
+    assert all(icon.mimeType == "image/png" for icon in initialization.serverInfo.icons)
+    assert [icon.sizes for icon in initialization.serverInfo.icons] == [
+        ["64x64"],
+        ["1024x1024"],
+    ]
     assert set(tools) == {"ask_model", "list_models"}
     assert tools["ask_model"].annotations is not None
     assert tools["ask_model"].annotations.openWorldHint is True

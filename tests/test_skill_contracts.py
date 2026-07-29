@@ -46,6 +46,26 @@ def test_review_is_cross_platform_and_uv_locked() -> None:
     assert not list(review_root.rglob("*.ps1"))
 
 
+def test_create_gif_uses_an_isolated_generation_boundary_and_locked_uv_script() -> None:
+    gif_root = IMAGE_PLUGIN_ROOT / "skills" / "create-gif"
+    skill = (gif_root / "SKILL.md").read_text(encoding="utf-8")
+    metadata = (gif_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+    script = gif_root / "scripts" / "gif_pipeline.py"
+
+    assert 'fork_turns: "none"' in skill
+    assert "ROLE: generated-gif-leaf" in skill
+    assert "official `$imagegen`" in skill
+    assert "uv run --locked --script" in skill
+    assert "Do not invoke `$image-enhance:create`" in skill
+    assert "untrusted visual data" in skill
+    assert "$image-enhance:create-gif" in metadata
+    assert "allow_implicit_invocation: true" in metadata
+    assert script.read_text(encoding="utf-8").startswith("# /// script")
+    assert script.with_suffix(".py.lock").is_file()
+    assert "ImageMagick" in skill
+    assert "ad hoc FFmpeg" in skill
+
+
 def test_marketplace_contains_all_enhance_plugins() -> None:
     marketplace = json.loads(
         (REPOSITORY_ROOT / ".agents" / "plugins" / "marketplace.json").read_text(
@@ -110,6 +130,39 @@ def test_plugin_icons_are_pixel_art_on_pure_white() -> None:
         assert all(icon.getpixel(point) == (255, 255, 255) for point in corners)
 
 
+def test_skill_icons_are_character_related_pixel_art() -> None:
+    skills = (
+        ("image-enhance", "create"),
+        ("image-enhance", "create-gif"),
+        ("image-enhance", "review"),
+        ("video-enhance", "analyze"),
+        ("model-enhance", "consult"),
+    )
+
+    for plugin_name, skill_name in skills:
+        skill_root = PLUGINS_ROOT / plugin_name / "skills" / skill_name
+        metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        small_path = skill_root / "assets" / "icon-small.png"
+        large_path = skill_root / "assets" / "icon-large.png"
+
+        assert 'icon_small: "./assets/icon-small.png"' in metadata
+        assert 'icon_large: "./assets/icon-large.png"' in metadata
+
+        with Image.open(small_path) as small_source:
+            small = small_source.convert("RGB")
+        with Image.open(large_path) as large_source:
+            large = large_source.convert("RGB")
+
+        assert small.size == (64, 64)
+        assert large.size == (1024, 1024)
+        assert small.getcolors(maxcolors=16) is not None
+        assert large == small.resize((1024, 1024), Image.Resampling.NEAREST)
+        assert all(
+            small.getpixel(point) == (255, 255, 255)
+            for point in ((0, 0), (63, 0), (0, 63), (63, 63))
+        )
+
+
 def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() -> None:
     expected = {
         "video-enhance": {
@@ -146,6 +199,18 @@ def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() 
         assert skill.startswith(f"---\nname: {contract['skill']}\n")
         assert f"${plugin_name}:{contract['skill']}" in metadata
         assert "allow_implicit_invocation: true" in metadata
+        mcp_icon = plugin_root / "assets" / "mcp-icon.png"
+        mcp_logo = plugin_root / "assets" / "mcp-logo.png"
+        package_assets = next((plugin_root / "src").glob("*/assets"))
+        assert mcp_icon.read_bytes() == (package_assets / "mcp-icon.png").read_bytes()
+        assert mcp_logo.read_bytes() == (package_assets / "mcp-logo.png").read_bytes()
+        with Image.open(mcp_icon) as icon_source:
+            icon = icon_source.convert("RGB")
+        with Image.open(mcp_logo) as logo_source:
+            logo = logo_source.convert("RGB")
+        assert icon.size == (64, 64)
+        assert icon.getcolors(maxcolors=16) is not None
+        assert logo == icon.resize((1024, 1024), Image.Resampling.NEAREST)
         gitignore = (plugin_root / ".gitignore").read_text(encoding="utf-8")
         assert ".venv/" in gitignore
         assert "__pycache__/" in gitignore

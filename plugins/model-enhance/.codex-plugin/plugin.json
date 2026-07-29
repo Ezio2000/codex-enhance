@@ -1,6 +1,6 @@
 {
   "name": "model-enhance",
-  "version": "0.1.1",
+  "version": "0.1.1+codex.20260727171933",
   "description": "Consult OpenAI- or Anthropic-compatible models through a secure local stdio MCP server.",
   "author": {
     "name": "Xie Ningjun",
