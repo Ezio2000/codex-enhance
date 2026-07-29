@@ -68,6 +68,29 @@ def test_create_gif_uses_an_isolated_generation_boundary_and_locked_uv_script() 
     assert "ad hoc FFmpeg" in skill
 
 
+def test_create_gif_assigns_one_leaf_worker_per_output_gif() -> None:
+    skill = (IMAGE_PLUGIN_ROOT / "skills" / "create-gif" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    normalized = " ".join(skill.split())
+
+    assert "each requested output GIF as one independent GIF deliverable" in normalized
+    assert (
+        "exactly one distinct generated-GIF leaf worker per GIF deliverable"
+        in normalized
+    )
+    assert "Never assign multiple GIF deliverables to the same worker" in normalized
+    assert "Each worker owns" in normalized
+    assert "for only its GIF" in normalized
+    assert "Do not use `followup_task` to assign a second GIF" in normalized
+    assert "with four total agent slots including" in normalized
+    assert "start three GIF workers, then start the fourth" in normalized
+    assert (
+        "Process exactly one GIF deliverable and return exactly one GIF result"
+        in normalized
+    )
+
+
 def test_marketplace_contains_all_enhance_plugins() -> None:
     marketplace = json.loads(
         (REPOSITORY_ROOT / ".agents" / "plugins" / "marketplace.json").read_text(

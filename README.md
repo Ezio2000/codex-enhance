@@ -87,6 +87,9 @@ $image-enhance:create-gif Create a 12-frame looping pixel-art GIF from this 4x3 
 
 The GIF workflow uses a locked uv/Pillow pipeline for deterministic frame
 ordering, timing, resizing, palette generation, encoding, and verification.
+For batches of newly generated GIFs, each output GIF is isolated in its own
+leaf worker; independent outputs run concurrently within the available agent
+slots instead of being serialized inside one worker.
 Generated sprite sheets use bounded trailing-edge normalization before
 cutting: small non-divisible width or height remainders are trimmed and
 reported, while larger mismatches still fail safely. User-provided sprite
