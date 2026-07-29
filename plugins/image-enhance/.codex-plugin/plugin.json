@@ -1,6 +1,6 @@
 {
   "name": "image-enhance",
-  "version": "0.1.2+codex.20260729115443",
+  "version": "0.1.2+codex.20260729122923",
   "description": "Strengthen Codex image workflows with isolated generation, animated GIF creation, and efficient folder review.",
   "author": {
     "name": "Xie Ningjun",
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "Image Enhance",
     "shortDescription": "Stronger image creation, GIF, and folder review workflows.",
-    "longDescription": "Create or edit raster images through one isolated imagegen worker, build and verify animated GIFs with a deterministic cross-platform pipeline, and review image-heavy folders through labeled contact sheets.",
+    "longDescription": "Create or edit raster images through distinct serial imagegen workers, build and verify animated GIFs with a deterministic cross-platform pipeline, and review image-heavy folders through labeled contact sheets.",
     "developerName": "Xie Ningjun",
     "category": "Productivity",
     "composerIcon": "./assets/icon.png",

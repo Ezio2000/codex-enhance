@@ -70,9 +70,11 @@ editing request, or it can be invoked explicitly:
 $image-enhance:create Generate a cinematic 16:9 product hero image.
 ```
 
-The create workflow delegates to one isolated leaf worker using the official
-`$imagegen` skill. Folder review uses a locked, cross-platform contact-sheet
-script and is intended for four or more images from one folder:
+The create workflow uses one distinct isolated `$imagegen` leaf worker per
+final image. Multiple outputs run serially: the next worker starts only after
+the current image reaches a terminal result. Folder review uses a locked,
+cross-platform contact-sheet script and is intended for four or more images
+from one folder:
 
 ```text
 $image-enhance:review Compare the images in this folder and select the best three.
@@ -88,8 +90,8 @@ $image-enhance:create-gif Create a 12-frame looping pixel-art GIF from this 4x3 
 The GIF workflow uses a locked uv/Pillow pipeline for deterministic frame
 ordering, timing, resizing, palette generation, encoding, and verification.
 For batches of newly generated GIFs, each output GIF is isolated in its own
-leaf worker; independent outputs run concurrently within the available agent
-slots instead of being serialized inside one worker.
+leaf worker. Only one GIF worker runs at a time, and the next output starts in
+a new worker after the current GIF reaches a terminal result.
 Generated sprite sheets use bounded trailing-edge normalization before
 cutting: small non-divisible width or height remainders are trimmed and
 reported, while larger mismatches still fail safely. User-provided sprite

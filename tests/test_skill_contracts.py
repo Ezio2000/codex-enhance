@@ -18,9 +18,17 @@ def test_create_allows_implicit_invocation_and_worker_prompt_is_non_recursive() 
     metadata = (
         IMAGE_PLUGIN_ROOT / "skills" / "create" / "agents" / "openai.yaml"
     ).read_text(encoding="utf-8")
+    normalized = " ".join(skill.split())
     worker_template = skill.split("Construct the initial worker task", maxsplit=1)[1]
 
     assert 'fork_turns: "none"' in skill
+    assert (
+        "each requested final output image as one independent deliverable" in normalized
+    )
+    assert "exactly one distinct worker per image deliverable" in normalized
+    assert "Never have more than one image worker active at a time" in normalized
+    assert "before starting a new worker for the next deliverable" in normalized
+    assert "Never assign a second image deliverable to that worker" in normalized
     assert "ROLE: imagegen-leaf" in worker_template
     assert "official $imagegen" in worker_template
     assert "Do not invoke any other skill." in worker_template
@@ -29,7 +37,7 @@ def test_create_allows_implicit_invocation_and_worker_prompt_is_non_recursive() 
     assert '"status":"needs_confirmation"' in worker_template
     assert '"status":"failed"' in worker_template
     assert "$image-enhance:create" not in worker_template
-    assert "Never spawn a replacement worker." in skill
+    assert "Never spawn a replacement worker for the same deliverable" in normalized
     assert "allow_implicit_invocation: true" in metadata
 
 
@@ -74,7 +82,10 @@ def test_create_gif_assigns_one_leaf_worker_per_output_gif() -> None:
     )
     normalized = " ".join(skill.split())
 
-    assert "each requested output GIF as one independent GIF deliverable" in normalized
+    assert (
+        "each requested final output GIF as one independent GIF deliverable"
+        in normalized
+    )
     assert (
         "exactly one distinct generated-GIF leaf worker per GIF deliverable"
         in normalized
@@ -83,8 +94,15 @@ def test_create_gif_assigns_one_leaf_worker_per_output_gif() -> None:
     assert "Each worker owns" in normalized
     assert "for only its GIF" in normalized
     assert "Do not use `followup_task` to assign a second GIF" in normalized
-    assert "with four total agent slots including" in normalized
-    assert "start three GIF workers, then start the fourth" in normalized
+    assert (
+        "Never have more than one generated-GIF worker active at a time" in normalized
+    )
+    assert (
+        "wait for its terminal `ok` or `failed` result, then start a new "
+        "distinct worker for the next pending GIF"
+    ) in normalized
+    assert "source frame, or intermediate image" in normalized
+    assert "is not a separate deliverable" in normalized
     assert (
         "Process exactly one GIF deliverable and return exactly one GIF result"
         in normalized

@@ -82,10 +82,11 @@ Do not invoke `$image-enhance:create` and then process its returned file in the
 root agent; that skill's isolation contract forbids reading returned pixels.
 
 Before starting workers, convert the request into an ordered deliverable list.
-Treat each requested output GIF as one independent GIF deliverable, even when
-the user describes several outputs as one set or batch. Give every deliverable
-one stable ID, one unique absolute output path, one visual request, and one
-frame plan.
+Treat each requested final output GIF as one independent GIF deliverable, even
+when the user describes several outputs as one set or batch. A sprite sheet,
+source frame, or intermediate image is part of its parent GIF and is not a
+separate deliverable. Give every deliverable one stable ID, one unique
+absolute output path, one visual request, and one frame plan.
 
 Start exactly one distinct generated-GIF leaf worker per GIF deliverable with
 `fork_turns: "none"`. Never assign multiple GIF deliverables to the same
@@ -93,14 +94,12 @@ worker, and never split one GIF deliverable across workers. Each worker owns
 generation, visual inspection, cutting, encoding, verification, cleanup, and
 final metadata for only its GIF.
 
-Schedule independent GIF deliverables concurrently up to the available child
-worker slots. Keep the root agent free to own the deliverable list, validate
-unique output paths, collect results, and start the next pending deliverable
-when a slot becomes free. For example, with four total agent slots including
-the root, start three GIF workers, then start the fourth after one finishes.
-Do not use `followup_task` to assign a second GIF to a completed worker. Never
-start a replacement worker for a failed deliverable; its one allowed creative
-retry must happen inside its original worker.
+Never have more than one generated-GIF worker active at a time. Start the
+first worker, wait for its terminal `ok` or `failed` result, then start a new
+distinct worker for the next pending GIF. Do not use `followup_task` to assign
+a second GIF to a completed worker. Never start a replacement worker for a
+failed deliverable; its one allowed creative retry must happen inside its
+original worker.
 
 Construct its task from this template:
 
