@@ -571,6 +571,31 @@ def test_nul_delimited_paths_preserve_spaces_and_unicode(tmp_path: Path) -> None
     assert special in _by_path(payload["included_files"])
 
 
+def test_json_output_is_safe_for_ascii_only_stdout(tmp_path: Path) -> None:
+    repository = _init_repository(tmp_path)
+    special = "雪.py"
+    (repository / special).write_text("snow = True\n", encoding="utf-8")
+    environment = os.environ.copy()
+    environment["PYTHONIOENCODING"] = "ascii"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            os.fspath(SCRIPT_PATH),
+            "repo",
+            "--repository",
+            os.fspath(repository),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert result.returncode == 0, result.stderr or result.stdout
+    assert special in _by_path(json.loads(result.stdout)["included_files"])
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Windows filenames cannot contain newlines")
 def test_nul_delimited_paths_preserve_newlines(tmp_path: Path) -> None:
     repository = _init_repository(tmp_path)

@@ -1552,9 +1552,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
             "status": "error",
             "error": {"code": exc.code, "message": str(exc)},
         }
-        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        print(json.dumps(payload, ensure_ascii=True, indent=2))
         return 2
-    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    print(json.dumps(payload, ensure_ascii=True, indent=2))
     return 0
 
 
