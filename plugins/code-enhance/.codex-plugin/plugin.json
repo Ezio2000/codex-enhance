@@ -1,6 +1,6 @@
 {
   "name": "code-enhance",
-  "version": "0.1.0+codex.20260730034156",
+  "version": "0.1.0+codex.20260730041307",
   "description": "Run check-by-check, evidence-driven, read-only code reviews through independent finder and validator agents.",
   "author": {
     "name": "Xie Ningjun",
