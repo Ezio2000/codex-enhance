@@ -1,6 +1,6 @@
 {
   "name": "code-enhance",
-  "version": "0.1.0",
+  "version": "0.1.0+codex.20260730034156",
   "description": "Run check-by-check, evidence-driven, read-only code reviews through independent finder and validator agents.",
   "author": {
     "name": "Xie Ningjun",
@@ -33,9 +33,9 @@
       "Version evolution analysis"
     ],
     "defaultPrompt": [
-      "$code-enhance:review Please review the entire repository, focusing on code quality, architecture, and security.",
-      "$code-enhance:review Please review my latest development changes and identify verified risks.",
-      "$code-enhance:review Please compare v1.2.0, v1.3.0, and v2.0.0 and summarize the code-quality trend."
+      "Use $code-enhance:review to review the entire repository, focusing on code quality, architecture, and security.",
+      "Use $code-enhance:review to review my latest development changes and identify verified risks.",
+      "Use $code-enhance:review to compare v1.2.0, v1.3.0, and v2.0.0 and summarize the code-quality trend."
     ]
   }
 }

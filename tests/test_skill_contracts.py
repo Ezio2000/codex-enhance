@@ -242,15 +242,22 @@ def test_code_review_is_explicit_read_only_and_natural_language_only() -> None:
     )
 
     assert "allow_implicit_invocation: false" in metadata
-    assert manifest["version"] == "0.1.0"
+    assert re.fullmatch(
+        r"0\.1\.0\+codex\.\d{14}",
+        manifest["version"],
+    )
     assert manifest["interface"]["displayName"] == "Code Enhance"
     assert manifest["interface"]["category"] == "Developer Tools"
     assert not {"mcpServers", "hooks", "apps"} & manifest.keys()
+    assert (
+        'default_prompt: "Use $code-enhance:review to '
+        "review my current development changes"
+    ) in metadata
     assert "strictly read-only" in " ".join(skill.lower().split())
     assert "bare" in skill.lower()
     assert "clarif" in skill.lower()
     assert all(
-        prompt.startswith("$code-enhance:review ")
+        prompt.startswith("Use $code-enhance:review to ")
         for prompt in manifest["interface"]["defaultPrompt"]
     )
     assert len(documented_examples) >= 8
