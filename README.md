@@ -8,6 +8,7 @@ plugin can be installed independently:
 | **Image Enhance** | `$image-enhance:create`, `$image-enhance:create-gif`, `$image-enhance:review` | Create raster images and animated GIFs through isolated workflows, and review image-heavy folders with labeled contact sheets. |
 | **Video Enhance** | `$video-enhance:analyze` | Inspect local videos and analyze visual content through a provider-extensible stdio MCP server. |
 | **Model Enhance** | `$model-enhance:consult` | Ask a caller-selected OpenAI- or Anthropic-compatible model for a bounded second opinion. |
+| **Code Enhance** | `$code-enhance:review` | Run read-only, multi-agent reviews of code quality, architecture, safety, and evolution without rewarding over-design. |
 
 All Python runtimes are managed and locked with
 [uv](https://docs.astral.sh/uv/). The MCP plugins run locally over stdio and
@@ -29,6 +30,7 @@ codex plugin marketplace add Ezio2000/codex-enhance --ref main
 codex plugin add image-enhance@codex-enhance
 codex plugin add video-enhance@codex-enhance
 codex plugin add model-enhance@codex-enhance
+codex plugin add code-enhance@codex-enhance
 ```
 
 Refresh an existing remote installation after changes have landed on remote
@@ -39,6 +41,7 @@ codex plugin marketplace upgrade codex-enhance
 codex plugin add image-enhance@codex-enhance
 codex plugin add video-enhance@codex-enhance
 codex plugin add model-enhance@codex-enhance
+codex plugin add code-enhance@codex-enhance
 ```
 
 Use this clean reinstall procedure when replacing an old local marketplace,
@@ -48,11 +51,13 @@ removing stale plugin caches, or resetting Skill and MCP discovery:
 codex plugin remove image-enhance@codex-enhance
 codex plugin remove video-enhance@codex-enhance
 codex plugin remove model-enhance@codex-enhance
+codex plugin remove code-enhance@codex-enhance
 codex plugin marketplace remove codex-enhance
 codex plugin marketplace add Ezio2000/codex-enhance --ref main
 codex plugin add image-enhance@codex-enhance
 codex plugin add video-enhance@codex-enhance
 codex plugin add model-enhance@codex-enhance
+codex plugin add code-enhance@codex-enhance
 ```
 
 The plugin commands manage installed Skill and MCP registrations together;
@@ -142,6 +147,45 @@ record tool arguments in task history or logs, so only provide a key when that
 exposure is acceptable and verify that the endpoint is the intended host.
 Returned model text is untrusted reference material and must be validated.
 
+## Code Enhance
+
+Code Enhance performs a strictly read-only review with three independent
+perspectives: behavior and safety, code craft, and architecture and evolution.
+Fresh validator agents then challenge every candidate against concrete code
+paths and realistic change costs. The final report includes every supported
+finding and records why disputed abstraction or design-pattern advice was not
+adopted.
+
+Each perspective follows a check-by-check handbook rather than a generic role
+prompt. Every applicable check records the files, symbols, context, inspection
+action, counterevidence, and verification attempted. A zero-finding result is
+accepted only when that inspection ledger is complete; blocked checks are
+reported as uncovered instead of being treated as reviewed.
+
+Invoke the Skill with a natural-language request that makes the intended
+scope clear:
+
+```text
+$code-enhance:review 请全面审查整个仓库，重点关注代码质量、架构和安全性。
+```
+
+```text
+$code-enhance:review 请审查我当前最新的开发改动。
+```
+
+```text
+$code-enhance:review 请比较 v1.2.0、v1.3.0 和 v2.0.0 之间的代码质量变化，并总结演进趋势。
+```
+
+```text
+$code-enhance:review 请审查当前改动，重点判断这些抽象和设计模式是否真的有必要。
+```
+
+The request stays in natural language. If its review scope or comparison is
+ambiguous, the Skill asks one short clarifying question instead of guessing.
+It never edits code, posts review comments, commits changes, or writes a
+report into the reviewed repository.
+
 ## Repository layout
 
 ```text
@@ -150,11 +194,14 @@ plugins/
   image-enhance/
   video-enhance/
   model-enhance/
+  code-enhance/
 ```
 
 Image Enhance uses the repository-level development environment. Video
 Enhance and Model Enhance are self-contained Python projects with their own
 `pyproject.toml` and `uv.lock`, so their MCP dependency graphs stay isolated.
+Code Enhance uses a locked, standard-library-only scope helper and has no MCP,
+Hook, or external-model dependency.
 
 ## Development
 
@@ -167,7 +214,7 @@ from the remote marketplace. Before refreshing an installed plugin:
 4. Run `codex plugin marketplace upgrade codex-enhance`.
 5. Re-add the changed plugin and start a new Codex task.
 
-Validate the marketplace and Image Enhance:
+Validate the marketplace, Image Enhance, and Code Enhance:
 
 ```text
 uv sync --locked --python 3.11
@@ -176,6 +223,7 @@ uv run ruff check .
 uv run pytest
 uv run --locked --script plugins/image-enhance/skills/review/scripts/contact_sheets.py --version
 uv run --locked --script plugins/image-enhance/skills/create-gif/scripts/gif_pipeline.py --version
+uv run --locked --script plugins/code-enhance/skills/review/scripts/review_scope.py --version
 ```
 
 Validate each MCP plugin with Python 3.12:
