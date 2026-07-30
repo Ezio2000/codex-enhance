@@ -21,8 +21,8 @@ problem shape that the pattern improves.
 Recommend introducing or expanding a design pattern only when all five
 conditions hold:
 
-1. **Current pain exists.** The code has a demonstrated correctness,
-   maintenance, coupling, testing, or extension cost.
+1. **Current pain exists.** The code has a demonstrated boundary, ownership,
+   maintenance, coupling, lifecycle, testing, or extension cost.
 2. **The variation or invariant axis is real.** There are multiple genuine
    variants, a stable external boundary, historical evidence of repeated
    change along the same axis, or a construction/lifecycle axis with distinct

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import tomllib
@@ -11,6 +12,20 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPOSITORY_ROOT / "plugins"
 IMAGE_PLUGIN_ROOT = PLUGINS_ROOT / "image-enhance"
 CODE_PLUGIN_ROOT = PLUGINS_ROOT / "code-enhance"
+CODE_SPECIALTIES = (
+    "beautify",
+    "simplify",
+    "standardize",
+    "design",
+    "security",
+)
+CODE_SPECIALTY_CHECK_IDS = {
+    "beautify": {f"BF-{number:02d}" for number in range(1, 6)},
+    "simplify": {f"SM-{number:02d}" for number in range(1, 10)},
+    "standardize": {f"ST-{number:02d}" for number in range(1, 9)},
+    "design": {f"DS-{number:02d}" for number in range(1, 14)},
+    "security": {f"SE-{number:02d}" for number in range(1, 10)},
+}
 
 
 def test_create_allows_implicit_invocation_and_worker_prompt_is_non_recursive() -> None:
@@ -193,8 +208,9 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
         ("image-enhance", "review"),
         ("video-enhance", "analyze"),
         ("model-enhance", "consult"),
-        ("code-enhance", "review"),
+        *(("code-enhance", skill_name) for skill_name in CODE_SPECIALTIES),
     )
+    code_skill_hashes: dict[str, str] = {}
 
     for plugin_name, skill_name in skills:
         skill_root = PLUGINS_ROOT / plugin_name / "skills" / skill_name
@@ -213,216 +229,144 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
         assert small.size == (64, 64)
         assert large.size == (1024, 1024)
         assert small.getcolors(maxcolors=16) is not None
-        assert large == small.resize((1024, 1024), Image.Resampling.NEAREST)
+        expected_large = small.resize((1024, 1024), Image.Resampling.NEAREST)
+        assert large.tobytes() == expected_large.tobytes()
         assert all(
             small.getpixel(point) == (255, 255, 255)
             for point in ((0, 0), (63, 0), (0, 63), (63, 63))
         )
+        if plugin_name == "code-enhance":
+            code_skill_hashes[skill_name] = hashlib.sha256(small.tobytes()).hexdigest()
+
+    assert set(code_skill_hashes) == set(CODE_SPECIALTIES)
+    assert len(set(code_skill_hashes.values())) == len(CODE_SPECIALTIES)
 
 
-def test_code_review_is_explicit_read_only_and_natural_language_only() -> None:
-    skill_root = CODE_PLUGIN_ROOT / "skills" / "review"
-    skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-    metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None:
+    skills_root = CODE_PLUGIN_ROOT / "skills"
     readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
     manifest = json.loads(
         (CODE_PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
     )
-    public_surfaces = "\n".join(
-        [
-            readme,
-            "\n".join(manifest["interface"]["defaultPrompt"]),
-            metadata,
-            skill,
-        ]
-    )
-    documented_examples = re.findall(
-        r"```text\n(\$code-enhance:review[^\n]+)\n```",
-        f"{readme}\n{skill}",
+    skill_directories = {
+        path.name
+        for path in skills_root.iterdir()
+        if path.is_dir() and (path / "SKILL.md").is_file()
+    }
+    plugin_text = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in CODE_PLUGIN_ROOT.rglob("*")
+        if path.is_file() and path.suffix in {".json", ".md", ".py", ".yaml"}
     )
 
-    assert "allow_implicit_invocation: false" in metadata
+    assert skill_directories == set(CODE_SPECIALTIES)
+    assert not (skills_root / "review").exists()
     assert re.fullmatch(
-        r"0\.1\.0\+codex\.\d{14}",
+        r"0\.2\.0\+codex\.\d{14}",
         manifest["version"],
     )
     assert manifest["interface"]["displayName"] == "Code Enhance"
     assert manifest["interface"]["category"] == "Developer Tools"
     assert not {"mcpServers", "hooks", "apps"} & manifest.keys()
-    assert (
-        'default_prompt: "Use $code-enhance:review to '
-        "review my current development changes"
-    ) in metadata
-    assert "strictly read-only" in " ".join(skill.lower().split())
-    assert "bare" in skill.lower()
-    assert "clarif" in skill.lower()
+    assert "$code-enhance:review" not in f"{readme}\n{plugin_text}"
     assert all(
-        prompt.startswith("Use $code-enhance:review to ")
-        for prompt in manifest["interface"]["defaultPrompt"]
-    )
-    assert len(documented_examples) >= 8
-    assert all(
-        len(example.removeprefix("$code-enhance:review").strip()) >= 10
-        and example.rstrip().endswith((".", "?", "!", "。", "？", "！"))
-        for example in documented_examples
-    )
-    assert all(
-        forbidden not in public_surfaces
-        for forbidden in (
-            "$code-enhance:review repo",
-            "$code-enhance:review latest",
-            "$code-enhance:review versions",
-            "$code-enhance:review --",
+        legacy not in plugin_text
+        for legacy in (
+            "Behavior & Safety",
+            "Code Craft",
+            "Architecture & Evolution",
+            "BS-01",
+            "CC-01",
+            "AE-01",
         )
     )
 
+    default_prompts = manifest["interface"]["defaultPrompt"]
+    assert len(default_prompts) == len(CODE_SPECIALTIES)
+    manifest_prompt_skills: list[str] = []
+    for prompt in default_prompts:
+        invocations = re.findall(r"\$code-enhance:([a-z-]+)", prompt)
+        assert len(invocations) == 1
+        assert prompt.startswith(f"Use $code-enhance:{invocations[0]} to ")
+        manifest_prompt_skills.extend(invocations)
+    assert tuple(manifest_prompt_skills) == CODE_SPECIALTIES
 
-def test_code_review_has_independent_finders_and_fresh_validation() -> None:
-    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
-    skill = (review_root / "SKILL.md").read_text(encoding="utf-8")
-    orchestration = (review_root / "references" / "orchestration.md").read_text(
-        encoding="utf-8"
-    )
-    contract = (review_root / "references" / "finding-contract.md").read_text(
-        encoding="utf-8"
-    )
-    pattern_fit = (review_root / "references" / "pattern-fit.md").read_text(
-        encoding="utf-8"
-    )
-    combined = "\n".join((skill, orchestration, contract, pattern_fit))
+    for skill_name in CODE_SPECIALTIES:
+        skill_root = skills_root / skill_name
+        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        normalized = " ".join(skill.lower().split())
 
-    assert 'fork_turns: "none"' in combined
-    assert "Behavior & Safety" in combined
-    assert "Code Craft" in combined
-    assert "Architecture & Evolution" in combined
-    assert "validator" in combined.lower()
-    assert "no spawning" in combined.lower()
-    assert "no skill invocation" in combined.lower()
-    assert "neutral relay" in combined.lower()
-    assert "direct child-thread budget" in combined.lower()
-    assert "YAGNI" in combined
-    assert "Confirmed" in combined
-    assert "Supported" in combined
-    assert all(
-        column in combined
-        for column in (
-            "ID",
-            "Priority",
-            "Dimension",
-            "Location",
-            "Verified issue",
-            "Failure/change cost",
-            "Evidence",
-            "Minimal improvement",
-            "Pattern judgment",
-            "Change timing",
-            "Confidence",
-        )
-    )
-
-
-def test_code_review_scope_helper_is_uv_locked_and_dependency_free() -> None:
-    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
-    script = review_root / "scripts" / "review_scope.py"
-
-    assert script.read_text(encoding="utf-8").startswith("# /// script")
-    assert script.with_suffix(".py.lock").is_file()
-    assert not list(review_root.rglob("*.ps1"))
-
-
-def test_code_review_rubric_covers_false_positive_and_pattern_scenarios() -> None:
-    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
-    rubric = (review_root / "references" / "review-rubric.md").read_text(
-        encoding="utf-8"
-    )
-    pattern_fit = (review_root / "references" / "pattern-fit.md").read_text(
-        encoding="utf-8"
-    )
-    contract = (review_root / "references" / "finding-contract.md").read_text(
-        encoding="utf-8"
-    )
-    combined = "\n".join((rubric, pattern_fit, contract))
-
-    assert "Zero is valid" in combined
-    assert "attack surface" in combined
-    assert "hot path" in combined
-    assert "accidental duplication" in combined
-    assert "Repeated switch" in combined
-    assert "Single-implementation interface" in combined
-    assert "One-product Factory" in combined
-    assert "Pass-through Wrapper" in combined
-    assert "Adapter" in combined
-    assert all(
-        judgment in combined
-        for judgment in ("appropriate", "missing", "misused", "overused")
-    )
-
-
-def test_code_review_uses_strict_per_check_handbooks_and_auditable_ledgers() -> None:
-    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
-    references = review_root / "references"
-    skill = (review_root / "SKILL.md").read_text(encoding="utf-8")
-    orchestration = (references / "orchestration.md").read_text(encoding="utf-8")
-    rubric = (references / "review-rubric.md").read_text(encoding="utf-8")
-    contract = (references / "finding-contract.md").read_text(encoding="utf-8")
-    pattern_fit = (references / "pattern-fit.md").read_text(encoding="utf-8")
-    normalized_skill = " ".join(skill.split())
-    normalized_orchestration = " ".join(orchestration.split())
-    normalized_contract = " ".join(contract.split())
-    normalized_pattern_fit = " ".join(pattern_fit.split())
-    handbooks = {
-        "BS": (references / "finder-behavior-safety.md").read_text(encoding="utf-8"),
-        "CC": (references / "finder-code-craft.md").read_text(encoding="utf-8"),
-        "AE": (references / "finder-architecture-evolution.md").read_text(
-            encoding="utf-8"
-        ),
-    }
-
-    for filename in (
-        "finder-behavior-safety.md",
-        "finder-code-craft.md",
-        "finder-architecture-evolution.md",
-    ):
-        assert f"](references/{filename})" in skill
-
-    expected_ids = {
-        "BS": {f"BS-{number:02d}" for number in range(1, 13)},
-        "CC": {f"CC-{number:02d}" for number in range(1, 13)},
-        "AE": {f"AE-{number:02d}" for number in range(1, 14)},
-    }
-    all_ids: list[str] = []
-    for prefix, handbook in handbooks.items():
-        matrix_ids = re.findall(
-            rf"^\| `({prefix}-\d{{2}})\b",
-            handbook,
+        assert re.search(rf"^name: {skill_name}$", skill, flags=re.MULTILINE)
+        assert "allow_implicit_invocation: false" in metadata
+        assert re.search(
+            rf'^\s+default_prompt: "Use \$code-enhance:{skill_name}\b',
+            metadata,
             flags=re.MULTILINE,
         )
-        assert set(matrix_ids) == expected_ids[prefix]
-        assert len(matrix_ids) == len(set(matrix_ids))
-        all_ids.extend(matrix_ids)
-        assert all(
-            heading in handbook
-            for heading in (
-                "Applicability and minimum context",
-                "Required inspection",
-                "Candidate evidence",
-                "Disconfirming evidence",
-                "Minimum verification",
-                "Ledger payload",
+        assert re.findall(r"\$code-enhance:([a-z-]+)", metadata) == [skill_name]
+        assert "strictly read-only" in normalized
+        assert "natural-language request" in normalized
+        assert "exactly one concise" in normalized
+        assert "../../scripts/review_scope.py" in skill
+        assert "directory" in normalized
+        assert "current development" in normalized
+        assert any(
+            marker in normalized
+            for marker in ("historical comparison", "comparisons between named")
+        )
+        assert any(
+            marker in normalized
+            for marker in (
+                "ordinary correctness",
+                "behavior-correctness",
+                "exclude correctness",
             )
         )
-        assert "inspection_ledger" in handbook
-        assert "checked_clear | candidate | not_applicable | blocked" in handbook
+        assert all(
+            forbidden not in f"{skill}\n{metadata}"
+            for forbidden in (
+                f"$code-enhance:{skill_name} repo",
+                f"$code-enhance:{skill_name} latest",
+                f"$code-enhance:{skill_name} versions",
+                f"$code-enhance:{skill_name} --",
+            )
+        )
 
-    assert len(all_ids) == len(set(all_ids))
-    surface_ids = set(
-        re.findall(r"^\| `(BS-S\d{2})` \|", handbooks["BS"], flags=re.MULTILINE)
+
+def test_code_enhance_shares_coverage_deduplication_and_fresh_validation() -> None:
+    references = CODE_PLUGIN_ROOT / "references"
+    orchestration = (references / "orchestration.md").read_text(encoding="utf-8")
+    contract = (references / "finding-contract.md").read_text(encoding="utf-8")
+    rubric = (references / "review-rubric.md").read_text(encoding="utf-8")
+    normalized_orchestration = " ".join(orchestration.split())
+    normalized_contract = " ".join(contract.split())
+    combined = "\n".join((orchestration, contract, rubric))
+
+    assert "neutral context pack" in orchestration
+    assert "resolve scope once" in orchestration.lower()
+    assert 'fork_turns: "none"' in orchestration
+    assert "fresh Validator" in orchestration
+    assert "cannot spawn agents" in orchestration
+    assert "invoke Skills" in orchestration
+    assert "root cause + affected symbol/boundary/contract + change axis" in combined
+    assert "primary_review_kind" in combined
+    assert "related_review_kinds" in combined
+    assert "Exactly one `primary_review_kind` is required" in contract
+    assert "A single root cause produces one candidate" in orchestration
+    assert "Zero candidates does not relax this formula" in normalized_orchestration
+    assert (
+        "A candidate without a fresh Validator result is not reportable"
+        in normalized_orchestration
     )
-    assert surface_ids == {f"BS-S{number:02d}" for number in range(1, 8)}
+    assert "ordinary behavior correctness" in contract.lower()
+    assert "not independently reportable" in normalized_contract
+    assert all(f"V-{number:02d}" in rubric for number in range(1, 9))
     assert all(
         field in contract
         for field in (
             "inspection_id",
+            "review_kind",
             "check_id",
             "applicability_triggers_checked",
             "artifacts_searched",
@@ -434,83 +378,144 @@ def test_code_review_uses_strict_per_check_handbooks_and_auditable_ledgers() -> 
             "verification_attempts",
             "scope_origin",
             "proof_chain",
+            "primary_review_kind",
+            "related_review_kinds",
             "independent_context_read",
             "independent_reconstruction",
             "falsification_hypotheses",
             "falsification_attempts",
             "residual_assumptions",
-            "problem_verdict",
-            "pattern_action",
-            "introduction_or_expansion_gates",
-            "removal_or_collapse_gates",
-            "keep_evidence",
-            "represented_need_absent_obsolete_or_not_served_by_participants",
-            "no_required_boundary_is_lost_or_replacement_improves_it",
+            "specialty_gate_results",
+            "verdict: Confirmed | Supported | Rejected",
         )
     )
-    assert "no inspection record is blocked" in orchestration
-    assert "Zero candidates does not relax this formula" in normalized_orchestration
-    assert "complete handbook ID set" in orchestration
-    assert "Generic claims such as" in normalized_orchestration
-    assert "must not fill the missing proof" in normalized_orchestration
-    assert "surface_inventory" in orchestration
-    assert "source extents/objects" in orchestration
-    assert "source_extents_or_objects_read" in orchestration
-    assert (
-        "every deduplicated candidate has an independent Validator result"
-        in normalized_orchestration
-    )
-    assert "A filename, summary, diff hunk" in normalized_skill
-    assert "Load references by workflow stage" in skill
-    assert "Before returning any candidate" in skill
-    assert "before independent validation or adjudication" in normalized_skill
-    assert "V-01 Behavior" in rubric
-    assert "V-07 Test gap" in rubric
-    assert "D-01 Scope" in rubric
-    assert "D-08 Traceability" in rubric
-    assert "problem_verdict" in rubric
-    assert all(
-        proof_chain in rubric
-        for proof_chain in (
-            "Pattern introduce or expand",
-            "Pattern keep",
-            "Pattern remove or collapse",
-            "Pattern replace",
-        )
-    )
-    assert "untrusted review data" in normalized_skill
-    assert "candidate funnel counts" in normalized_contract
-    assert "missing, blocked, and unvalidated" in normalized_contract
 
-    assert all(
-        pattern in pattern_fit
-        for pattern in (
-            "**Adapter**",
-            "**Strategy**",
-            "**State**",
-            "**Factory**",
-            "**Builder**",
-            "**Command**",
-            "**Observer or event**",
-            "**Decorator**",
-            "**Proxy**",
-            "**Facade**",
-            "**Repository**",
-            "**Template Method or base class**",
-            "**Dependency injection boundary**",
-            "**CQRS, event sourcing, saga, or other system-level pattern**",
+    for skill_name in CODE_SPECIALTIES:
+        skill = (CODE_PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(
+            encoding="utf-8"
         )
+        assert "](../../references/orchestration.md)" in skill
+        assert "](../../references/finding-contract.md)" in skill
+        assert "](../../references/review-rubric.md)" in skill
+        assert 'fork_turns: "none"' in skill
+        assert re.search(r"fresh (?:isolated )?Validator", skill, flags=re.IGNORECASE)
+        assert "primary_review_kind" in skill
+        assert "related_review_kinds" in skill
+
+
+def test_code_enhance_scope_helper_is_shared_uv_locked_and_dependency_free() -> None:
+    script = CODE_PLUGIN_ROOT / "scripts" / "review_scope.py"
+
+    assert script == (
+        REPOSITORY_ROOT / "plugins" / "code-enhance" / "scripts" / "review_scope.py"
     )
-    assert "no universal threshold decides the result" in normalized_pattern_fit
-    assert (
-        "underlying problem and the named-pattern judgment are separate"
-        in normalized_pattern_fit
+    assert script.read_text(encoding="utf-8").startswith("# /// script")
+    assert script.with_suffix(".py.lock").is_file()
+    assert not list(CODE_PLUGIN_ROOT.rglob("*.ps1"))
+    for skill_name in CODE_SPECIALTIES:
+        skill = (CODE_PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        assert "../../scripts/review_scope.py" in skill
+
+
+def test_code_enhance_handbooks_have_unique_complete_check_matrices() -> None:
+    all_ids: list[str] = []
+    for skill_name, expected_ids in CODE_SPECIALTY_CHECK_IDS.items():
+        handbook = (
+            CODE_PLUGIN_ROOT / "skills" / skill_name / "references" / "handbook.md"
+        ).read_text(encoding="utf-8")
+        handbook_ids = re.findall(
+            r"^(?:#{2,4}\s+|\|\s+`)((?:BF|SM|ST|DS|SE)-(?:S)?\d{2})\b",
+            handbook,
+            flags=re.MULTILINE,
+        )
+
+        expected_with_supplements = set(expected_ids)
+        if skill_name == "security":
+            expected_with_supplements |= {f"SE-S{number:02d}" for number in range(1, 8)}
+        assert set(handbook_ids) == expected_with_supplements
+        assert len(handbook_ids) == len(set(handbook_ids))
+        all_ids.extend(handbook_ids)
+        assert "checked_clear | candidate | not_applicable | blocked" in handbook
+        assert "blocked" in handbook
+    assert len(all_ids) == len(set(all_ids))
+
+
+def test_code_enhance_design_alone_owns_pattern_fitness_guidance() -> None:
+    pattern_fit_path = (
+        CODE_PLUGIN_ROOT / "skills" / "design" / "references" / "pattern-fit.md"
     )
-    assert "construction/lifecycle axis" in normalized_pattern_fit
+    pattern_files = set(CODE_PLUGIN_ROOT.glob("skills/*/references/pattern-fit.md"))
+
+    assert pattern_files == {pattern_fit_path}
+    pattern_fit = pattern_fit_path.read_text(encoding="utf-8")
+    design_skill = (CODE_PLUGIN_ROOT / "skills" / "design" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "pattern-fit.md" in design_skill
+    for skill_name in set(CODE_SPECIALTIES) - {"design"}:
+        specialty_text = "\n".join(
+            path.read_text(encoding="utf-8")
+            for path in (CODE_PLUGIN_ROOT / "skills" / skill_name).rglob("*.md")
+        )
+        assert "pattern-fit.md" not in specialty_text
+
+    assert "Mandatory three-option comparison" in pattern_fit
+    assert "underlying problem and the named-pattern judgment are separate" in (
+        " ".join(pattern_fit.split())
+    )
     assert all(
         action in pattern_fit
         for action in ("introduce", "expand", "remove", "collapse", "replace", "keep")
     )
+
+
+def test_code_enhance_performance_and_security_evidence_gates_are_strict() -> None:
+    rubric = (CODE_PLUGIN_ROOT / "references" / "review-rubric.md").read_text(
+        encoding="utf-8"
+    )
+    standardize = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            CODE_PLUGIN_ROOT / "skills" / "standardize" / "SKILL.md",
+            CODE_PLUGIN_ROOT / "skills" / "standardize" / "references" / "handbook.md",
+        )
+    )
+    security = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            CODE_PLUGIN_ROOT / "skills" / "security" / "SKILL.md",
+            CODE_PLUGIN_ROOT / "skills" / "security" / "references" / "handbook.md",
+        )
+    )
+    normalized_standardize = " ".join(standardize.split())
+    normalized_security = " ".join(security.split())
+
+    assert "ordinary correctness" in rubric
+    assert all(
+        evidence in normalized_standardize
+        for evidence in (
+            "reachable workload",
+            "before/after cost model",
+            "benchmark",
+            "profile",
+            "query plan",
+            "material user, latency, throughput, memory, I/O, or capacity impact",
+        )
+    )
+    assert "might be faster" in normalized_standardize
+    assert all(
+        link in normalized_security
+        for link in (
+            "attacker capability",
+            "attacker-controlled source",
+            "missing or bypassable controls",
+            "sensitive operation, sink, or asset",
+            "practical confidentiality, integrity, or availability impact",
+        )
+    )
+    assert "When any link is unknown or merely hypothetical" in normalized_security
 
 
 def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() -> None:

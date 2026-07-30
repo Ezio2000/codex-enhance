@@ -8,7 +8,7 @@ plugin can be installed independently:
 | **Image Enhance** | `$image-enhance:create`, `$image-enhance:create-gif`, `$image-enhance:review` | Create raster images and animated GIFs through isolated workflows, and review image-heavy folders with labeled contact sheets. |
 | **Video Enhance** | `$video-enhance:analyze` | Inspect local videos and analyze visual content through a provider-extensible stdio MCP server. |
 | **Model Enhance** | `$model-enhance:consult` | Ask a caller-selected OpenAI- or Anthropic-compatible model for a bounded second opinion. |
-| **Code Enhance** | `$code-enhance:review` | Run read-only, multi-agent reviews of code quality, architecture, safety, and evolution without rewarding over-design. |
+| **Code Enhance** | `$code-enhance:beautify`, `$code-enhance:simplify`, `$code-enhance:standardize`, `$code-enhance:design`, `$code-enhance:security` | Run five explicit, read-only specialties for code aesthetics, simplification, performance and idioms, design boundaries, and security. |
 
 All Python runtimes are managed and locked with
 [uv](https://docs.astral.sh/uv/). The MCP plugins run locally over stdio and
@@ -41,6 +41,16 @@ codex plugin marketplace upgrade codex-enhance
 codex plugin add image-enhance@codex-enhance
 codex plugin add video-enhance@codex-enhance
 codex plugin add model-enhance@codex-enhance
+codex plugin add code-enhance@codex-enhance
+```
+
+When an update removes or renames public Skills, remove the affected plugin
+before refreshing the marketplace so stale registrations and cached Skill
+metadata cannot survive the upgrade. For example:
+
+```text
+codex plugin remove code-enhance@codex-enhance
+codex plugin marketplace upgrade codex-enhance
 codex plugin add code-enhance@codex-enhance
 ```
 
@@ -149,42 +159,57 @@ Returned model text is untrusted reference material and must be validated.
 
 ## Code Enhance
 
-Code Enhance performs a strictly read-only review with three independent
-perspectives: behavior and safety, code craft, and architecture and evolution.
-Fresh validator agents then challenge every candidate against concrete code
-paths and realistic change costs. The final report includes every supported
-finding and records why disputed abstraction or design-pattern advice was not
-adopted.
+Code Enhance provides five explicit, strictly read-only review specialties.
+Each uses a check-by-check handbook, isolated Finder discovery, a complete
+coverage ledger, root-cause deduplication, and fresh Validator agents:
 
-Each perspective follows a check-by-check handbook rather than a generic role
-prompt. Every applicable check records the files, symbols, context, inspection
-action, counterevidence, and verification attempted. A zero-finding result is
-accepted only when that inspection ledger is complete; blocked checks are
-reported as uncovered instead of being treated as reviewed.
+- `$code-enhance:beautify` reviews layout, naming, expression order, comments,
+  local readability, and visual consistency.
+- `$code-enhance:simplify` finds removable branches, states, concepts,
+  indirection, duplication, hidden side effects, test scaffolding, and dead
+  code while preserving behavior and existing design boundaries.
+- `$code-enhance:standardize` reviews pinned-version idioms and performance
+  through algorithms, I/O amplification, data structures, allocation, caches,
+  blocking, backpressure, resource bounds, and measurement evidence.
+- `$code-enhance:design` reviews design patterns, responsibility and
+  ownership, dependency direction, public boundaries, OCP, extension points,
+  runtime composition, transactions, and architectural evolution.
+- `$code-enhance:security` reviews attack surfaces, trust boundaries,
+  authentication and authorization, injection, path/process boundaries,
+  secrets, privacy, supply chain, information disclosure, and availability
+  attacks.
 
-Invoke the Skill with a natural-language request that makes the intended
-scope clear:
+These specialties intentionally do not provide a general correctness,
+reliability, compatibility, or ordinary test-coverage review. Such evidence
+is considered only when it closes one of the five specialty proof chains.
+
+Invoke one or more Skills with a natural-language scope:
 
 ```text
-$code-enhance:review 请全面审查整个仓库，重点关注代码质量、架构和安全性。
+$code-enhance:beautify 请审查当前改动的代码美观、命名和可读性。
 ```
 
 ```text
-$code-enhance:review 请审查我当前最新的开发改动。
+$code-enhance:simplify 请找出当前改动中可以安全删除的复杂度和冗余。
 ```
 
 ```text
-$code-enhance:review 请比较 v1.2.0、v1.3.0 和 v2.0.0 之间的代码质量变化，并总结演进趋势。
+$code-enhance:standardize 请审查整个仓库的性能问题和不够惯用的代码写法。
 ```
 
 ```text
-$code-enhance:review 请审查当前改动，重点判断这些抽象和设计模式是否真的有必要。
+$code-enhance:design 请比较 v1.2.0、v1.3.0 和 v2.0.0 的设计边界与模式演进。
 ```
 
-The request stays in natural language. If its review scope or comparison is
-ambiguous, the Skill asks one short clarifying question instead of guessing.
-It never edits code, posts review comments, commits changes, or writes a
-report into the reviewed repository.
+```text
+$code-enhance:security 请审查当前开发改动中的可利用安全风险。
+```
+
+If several specialties are explicitly invoked together, they share one scope
+manifest, run independent discovery, and deduplicate by root cause before
+validation. A bare or ambiguous invocation asks one concise scope question.
+No specialty edits code, posts comments, commits changes, or writes a report
+into the reviewed repository.
 
 ## Repository layout
 
@@ -211,8 +236,9 @@ from the remote marketplace. Before refreshing an installed plugin:
 1. Commit the intended repository changes.
 2. Merge them into `main`.
 3. Push `main` to GitHub.
-4. Run `codex plugin marketplace upgrade codex-enhance`.
-5. Re-add the changed plugin and start a new Codex task.
+4. Remove the changed plugin first when the release removes or renames Skills.
+5. Run `codex plugin marketplace upgrade codex-enhance`.
+6. Re-add the changed plugin and start a new Codex task.
 
 Validate the marketplace, Image Enhance, and Code Enhance:
 
@@ -223,7 +249,7 @@ uv run ruff check .
 uv run pytest
 uv run --locked --script plugins/image-enhance/skills/review/scripts/contact_sheets.py --version
 uv run --locked --script plugins/image-enhance/skills/create-gif/scripts/gif_pipeline.py --version
-uv run --locked --script plugins/code-enhance/skills/review/scripts/review_scope.py --version
+uv run --locked --script plugins/code-enhance/scripts/review_scope.py --version
 ```
 
 Validate each MCP plugin with Python 3.12:

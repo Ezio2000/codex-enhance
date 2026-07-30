@@ -11,13 +11,7 @@ import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = (
-    REPOSITORY_ROOT
-    / "plugins"
-    / "code-enhance"
-    / "skills"
-    / "review"
-    / "scripts"
-    / "review_scope.py"
+    REPOSITORY_ROOT / "plugins" / "code-enhance" / "scripts" / "review_scope.py"
 )
 
 
