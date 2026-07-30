@@ -31,7 +31,7 @@ jobs:
       - name: Verify locked runtime script
         run: uv run --locked --script plugins/image-enhance/skills/review/scripts/contact_sheets.py --version
       - name: Verify Code Enhance scope helper
-        run: uv run --locked --script plugins/code-enhance/skills/review/scripts/review_scope.py --version
+        run: uv run --locked --script plugins/code-enhance/scripts/review_scope.py --version
       - name: Install Model Enhance dependencies
         run: uv --directory plugins/model-enhance sync --locked --python 3.12
       - name: Test Model Enhance

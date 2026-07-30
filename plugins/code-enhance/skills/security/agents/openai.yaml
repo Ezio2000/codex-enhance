@@ -1,0 +1,10 @@
+interface:
+  display_name: "Review Code Security"
+  short_description: "Trace exploitable attack paths and security impact"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#C7793E"
+  default_prompt: "Use $code-enhance:security to review my current changes for reachable, exploitable security risks."
+
+policy:
+  allow_implicit_invocation: false

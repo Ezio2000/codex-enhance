@@ -1,7 +1,7 @@
 {
   "name": "code-enhance",
-  "version": "0.1.0+codex.20260730041307",
-  "description": "Run check-by-check, evidence-driven, read-only code reviews through independent finder and validator agents.",
+  "version": "0.2.0+codex.20260730153522",
+  "description": "Run five explicit, evidence-driven, strictly read-only code review specialties for aesthetics, simplification, performance and idioms, design, and security.",
   "author": {
     "name": "Xie Ningjun",
     "url": "https://github.com/Ezio2000"
@@ -10,32 +10,34 @@
   "repository": "https://github.com/Ezio2000/codex-enhance",
   "license": "MIT",
   "keywords": [
-    "code-review",
-    "architecture",
+    "code-aesthetics",
+    "simplification",
+    "performance",
     "design-patterns",
-    "quality",
-    "multi-agent"
+    "security"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Code Enhance",
-    "shortDescription": "Auditable multi-agent code and architecture review.",
-    "longDescription": "Review repositories, development changes, and version evolution through three independent check-by-check handbooks followed by fresh evidence validation, with strict read-only behavior, complete coverage ledgers, and explicit resistance to over-design.",
+    "shortDescription": "Five auditable, read-only code review specialties.",
+    "longDescription": "Review repositories, current development changes, directories, and version evolution through five explicit specialties: code aesthetics, simplification, performance and idiomatic implementation, design patterns and boundaries, and security. Every specialty uses complete coverage ledgers, isolated discovery, fresh evidence validation, and a strict read-only boundary.",
     "developerName": "Xie Ningjun",
     "category": "Developer Tools",
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/logo.png",
     "capabilities": [
-      "Read-only repository review",
-      "Independent multi-agent discovery and validation",
-      "Per-check inspection and coverage ledgers",
-      "Architecture and design-pattern judgment",
-      "Version evolution analysis"
+      "Code aesthetics and readability review",
+      "Complexity and redundancy review",
+      "Performance and idiomatic implementation review",
+      "Design-pattern and boundary review",
+      "Attack-path and security review"
     ],
     "defaultPrompt": [
-      "Use $code-enhance:review to review the entire repository, focusing on code quality, architecture, and security.",
-      "Use $code-enhance:review to review my latest development changes and identify verified risks.",
-      "Use $code-enhance:review to compare v1.2.0, v1.3.0, and v2.0.0 and summarize the code-quality trend."
+      "Use $code-enhance:beautify to review my current changes for code aesthetics and readability.",
+      "Use $code-enhance:simplify to find unnecessary complexity in my current changes.",
+      "Use $code-enhance:standardize to review my current changes for performance and idiomatic code improvements.",
+      "Use $code-enhance:design to review my current changes for design-pattern and boundary fitness.",
+      "Use $code-enhance:security to review my current changes for exploitable security risks."
     ]
   }
 }
