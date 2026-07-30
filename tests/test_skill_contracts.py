@@ -285,6 +285,7 @@ def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None
     assert 1 <= len(default_prompts) <= 3
     manifest_prompt_skills: list[str] = []
     for prompt in default_prompts:
+        assert len(prompt) <= 128
         invocations = re.findall(r"\$code-enhance:([a-z-]+)", prompt)
         assert 1 <= len(invocations) <= 2
         if len(invocations) == 1:
