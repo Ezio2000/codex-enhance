@@ -282,12 +282,18 @@ def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None
     )
 
     default_prompts = manifest["interface"]["defaultPrompt"]
-    assert len(default_prompts) == len(CODE_SPECIALTIES)
+    assert 1 <= len(default_prompts) <= 3
     manifest_prompt_skills: list[str] = []
     for prompt in default_prompts:
         invocations = re.findall(r"\$code-enhance:([a-z-]+)", prompt)
-        assert len(invocations) == 1
-        assert prompt.startswith(f"Use $code-enhance:{invocations[0]} to ")
+        assert 1 <= len(invocations) <= 2
+        if len(invocations) == 1:
+            assert prompt.startswith(f"Use $code-enhance:{invocations[0]} to ")
+        else:
+            assert prompt.startswith(
+                f"Use $code-enhance:{invocations[0]} and "
+                f"$code-enhance:{invocations[1]} to "
+            )
         manifest_prompt_skills.extend(invocations)
     assert tuple(manifest_prompt_skills) == CODE_SPECIALTIES
 
