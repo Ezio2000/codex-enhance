@@ -560,13 +560,23 @@ def test_historical_rename_into_vendor_preserves_first_party_deletion(
     assert excluded["vendor/feature.py"]["reason"] == "dependency_directory"
 
 
-def test_nul_delimited_paths_preserve_spaces_newlines_and_unicode(
-    tmp_path: Path,
-) -> None:
+def test_nul_delimited_paths_preserve_spaces_and_unicode(tmp_path: Path) -> None:
     repository = _init_repository(tmp_path)
     (repository / "src").mkdir()
-    special = "src/name with space\n雪.py"
+    special = "src/name with space 雪.py"
     (repository / special).write_text("snow = True\n", encoding="utf-8")
+
+    payload = _run_scope("repo", "--repository", os.fspath(repository))
+
+    assert special in _by_path(payload["included_files"])
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows filenames cannot contain newlines")
+def test_nul_delimited_paths_preserve_newlines(tmp_path: Path) -> None:
+    repository = _init_repository(tmp_path)
+    (repository / "src").mkdir()
+    special = "src/name with\nnewline.py"
+    (repository / special).write_text("value = True\n", encoding="utf-8")
 
     payload = _run_scope("repo", "--repository", os.fspath(repository))
 
