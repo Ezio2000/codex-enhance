@@ -1,6 +1,6 @@
 {
   "name": "code-enhance",
-  "version": "0.2.0+codex.20260730154739",
+  "version": "0.2.0+codex.20260730155324",
   "description": "Run five explicit, evidence-driven, strictly read-only code review specialties for aesthetics, simplification, performance and idioms, design, and security.",
   "author": {
     "name": "Xie Ningjun",
@@ -33,9 +33,9 @@
       "Attack-path and security review"
     ],
     "defaultPrompt": [
-      "Use $code-enhance:beautify and $code-enhance:simplify to review my current changes for code aesthetics, readability, and removable complexity.",
+      "Use $code-enhance:beautify and $code-enhance:simplify to review current changes for readability and removable complexity.",
       "Use $code-enhance:standardize to review my current changes for performance and idiomatic code improvements.",
-      "Use $code-enhance:design and $code-enhance:security to review my current changes for design-boundary fitness and exploitable security risks."
+      "Use $code-enhance:design and $code-enhance:security to review current changes for design boundaries and security risks."
     ]
   }
 }
