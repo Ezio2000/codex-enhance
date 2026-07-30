@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from PIL import Image
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPOSITORY_ROOT / "plugins"
 IMAGE_PLUGIN_ROOT = PLUGINS_ROOT / "image-enhance"
+CODE_PLUGIN_ROOT = PLUGINS_ROOT / "code-enhance"
 
 
 def test_create_allows_implicit_invocation_and_worker_prompt_is_non_recursive() -> None:
@@ -116,11 +118,17 @@ def test_marketplace_contains_all_enhance_plugins() -> None:
         )
     )
     entries = {entry["name"]: entry for entry in marketplace["plugins"]}
-    expected_names = {"image-enhance", "video-enhance", "model-enhance"}
+    expected_names = {
+        "image-enhance",
+        "video-enhance",
+        "model-enhance",
+        "code-enhance",
+    }
     expected_authentication = {
         "image-enhance": "ON_INSTALL",
         "video-enhance": "ON_USE",
         "model-enhance": "ON_USE",
+        "code-enhance": "ON_INSTALL",
     }
 
     assert marketplace["name"] == "codex-enhance"
@@ -147,7 +155,12 @@ def test_marketplace_contains_all_enhance_plugins() -> None:
 
 
 def test_plugin_icons_are_pixel_art_on_pure_white() -> None:
-    for plugin_name in ("image-enhance", "video-enhance", "model-enhance"):
+    for plugin_name in (
+        "image-enhance",
+        "video-enhance",
+        "model-enhance",
+        "code-enhance",
+    ):
         plugin_root = PLUGINS_ROOT / plugin_name
         manifest = json.loads(
             (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
@@ -180,6 +193,7 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
         ("image-enhance", "review"),
         ("video-enhance", "analyze"),
         ("model-enhance", "consult"),
+        ("code-enhance", "review"),
     )
 
     for plugin_name, skill_name in skills:
@@ -204,6 +218,292 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
             small.getpixel(point) == (255, 255, 255)
             for point in ((0, 0), (63, 0), (0, 63), (63, 63))
         )
+
+
+def test_code_review_is_explicit_read_only_and_natural_language_only() -> None:
+    skill_root = CODE_PLUGIN_ROOT / "skills" / "review"
+    skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+    metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+    readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+    manifest = json.loads(
+        (CODE_PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    public_surfaces = "\n".join(
+        [
+            readme,
+            "\n".join(manifest["interface"]["defaultPrompt"]),
+            metadata,
+            skill,
+        ]
+    )
+    documented_examples = re.findall(
+        r"```text\n(\$code-enhance:review[^\n]+)\n```",
+        f"{readme}\n{skill}",
+    )
+
+    assert "allow_implicit_invocation: false" in metadata
+    assert manifest["version"] == "0.1.0"
+    assert manifest["interface"]["displayName"] == "Code Enhance"
+    assert manifest["interface"]["category"] == "Developer Tools"
+    assert not {"mcpServers", "hooks", "apps"} & manifest.keys()
+    assert "strictly read-only" in " ".join(skill.lower().split())
+    assert "bare" in skill.lower()
+    assert "clarif" in skill.lower()
+    assert all(
+        prompt.startswith("$code-enhance:review ")
+        for prompt in manifest["interface"]["defaultPrompt"]
+    )
+    assert len(documented_examples) >= 8
+    assert all(
+        len(example.removeprefix("$code-enhance:review").strip()) >= 10
+        and example.rstrip().endswith((".", "?", "!", "。", "？", "！"))
+        for example in documented_examples
+    )
+    assert all(
+        forbidden not in public_surfaces
+        for forbidden in (
+            "$code-enhance:review repo",
+            "$code-enhance:review latest",
+            "$code-enhance:review versions",
+            "$code-enhance:review --",
+        )
+    )
+
+
+def test_code_review_has_independent_finders_and_fresh_validation() -> None:
+    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
+    skill = (review_root / "SKILL.md").read_text(encoding="utf-8")
+    orchestration = (review_root / "references" / "orchestration.md").read_text(
+        encoding="utf-8"
+    )
+    contract = (review_root / "references" / "finding-contract.md").read_text(
+        encoding="utf-8"
+    )
+    pattern_fit = (review_root / "references" / "pattern-fit.md").read_text(
+        encoding="utf-8"
+    )
+    combined = "\n".join((skill, orchestration, contract, pattern_fit))
+
+    assert 'fork_turns: "none"' in combined
+    assert "Behavior & Safety" in combined
+    assert "Code Craft" in combined
+    assert "Architecture & Evolution" in combined
+    assert "validator" in combined.lower()
+    assert "no spawning" in combined.lower()
+    assert "no skill invocation" in combined.lower()
+    assert "neutral relay" in combined.lower()
+    assert "direct child-thread budget" in combined.lower()
+    assert "YAGNI" in combined
+    assert "Confirmed" in combined
+    assert "Supported" in combined
+    assert all(
+        column in combined
+        for column in (
+            "ID",
+            "Priority",
+            "Dimension",
+            "Location",
+            "Verified issue",
+            "Failure/change cost",
+            "Evidence",
+            "Minimal improvement",
+            "Pattern judgment",
+            "Change timing",
+            "Confidence",
+        )
+    )
+
+
+def test_code_review_scope_helper_is_uv_locked_and_dependency_free() -> None:
+    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
+    script = review_root / "scripts" / "review_scope.py"
+
+    assert script.read_text(encoding="utf-8").startswith("# /// script")
+    assert script.with_suffix(".py.lock").is_file()
+    assert not list(review_root.rglob("*.ps1"))
+
+
+def test_code_review_rubric_covers_false_positive_and_pattern_scenarios() -> None:
+    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
+    rubric = (review_root / "references" / "review-rubric.md").read_text(
+        encoding="utf-8"
+    )
+    pattern_fit = (review_root / "references" / "pattern-fit.md").read_text(
+        encoding="utf-8"
+    )
+    contract = (review_root / "references" / "finding-contract.md").read_text(
+        encoding="utf-8"
+    )
+    combined = "\n".join((rubric, pattern_fit, contract))
+
+    assert "Zero is valid" in combined
+    assert "attack surface" in combined
+    assert "hot path" in combined
+    assert "accidental duplication" in combined
+    assert "Repeated switch" in combined
+    assert "Single-implementation interface" in combined
+    assert "One-product Factory" in combined
+    assert "Pass-through Wrapper" in combined
+    assert "Adapter" in combined
+    assert all(
+        judgment in combined
+        for judgment in ("appropriate", "missing", "misused", "overused")
+    )
+
+
+def test_code_review_uses_strict_per_check_handbooks_and_auditable_ledgers() -> None:
+    review_root = CODE_PLUGIN_ROOT / "skills" / "review"
+    references = review_root / "references"
+    skill = (review_root / "SKILL.md").read_text(encoding="utf-8")
+    orchestration = (references / "orchestration.md").read_text(encoding="utf-8")
+    rubric = (references / "review-rubric.md").read_text(encoding="utf-8")
+    contract = (references / "finding-contract.md").read_text(encoding="utf-8")
+    pattern_fit = (references / "pattern-fit.md").read_text(encoding="utf-8")
+    normalized_skill = " ".join(skill.split())
+    normalized_orchestration = " ".join(orchestration.split())
+    normalized_contract = " ".join(contract.split())
+    normalized_pattern_fit = " ".join(pattern_fit.split())
+    handbooks = {
+        "BS": (references / "finder-behavior-safety.md").read_text(encoding="utf-8"),
+        "CC": (references / "finder-code-craft.md").read_text(encoding="utf-8"),
+        "AE": (references / "finder-architecture-evolution.md").read_text(
+            encoding="utf-8"
+        ),
+    }
+
+    for filename in (
+        "finder-behavior-safety.md",
+        "finder-code-craft.md",
+        "finder-architecture-evolution.md",
+    ):
+        assert f"](references/{filename})" in skill
+
+    expected_ids = {
+        "BS": {f"BS-{number:02d}" for number in range(1, 13)},
+        "CC": {f"CC-{number:02d}" for number in range(1, 13)},
+        "AE": {f"AE-{number:02d}" for number in range(1, 14)},
+    }
+    all_ids: list[str] = []
+    for prefix, handbook in handbooks.items():
+        matrix_ids = re.findall(
+            rf"^\| `({prefix}-\d{{2}})\b",
+            handbook,
+            flags=re.MULTILINE,
+        )
+        assert set(matrix_ids) == expected_ids[prefix]
+        assert len(matrix_ids) == len(set(matrix_ids))
+        all_ids.extend(matrix_ids)
+        assert all(
+            heading in handbook
+            for heading in (
+                "Applicability and minimum context",
+                "Required inspection",
+                "Candidate evidence",
+                "Disconfirming evidence",
+                "Minimum verification",
+                "Ledger payload",
+            )
+        )
+        assert "inspection_ledger" in handbook
+        assert "checked_clear | candidate | not_applicable | blocked" in handbook
+
+    assert len(all_ids) == len(set(all_ids))
+    surface_ids = set(
+        re.findall(r"^\| `(BS-S\d{2})` \|", handbooks["BS"], flags=re.MULTILINE)
+    )
+    assert surface_ids == {f"BS-S{number:02d}" for number in range(1, 8)}
+    assert all(
+        field in contract
+        for field in (
+            "inspection_id",
+            "check_id",
+            "applicability_triggers_checked",
+            "artifacts_searched",
+            "files_and_symbols_read",
+            "source_extents_or_objects_read",
+            "context_read",
+            "inspection_action",
+            "disconfirming_evidence",
+            "verification_attempts",
+            "scope_origin",
+            "proof_chain",
+            "independent_context_read",
+            "independent_reconstruction",
+            "falsification_hypotheses",
+            "falsification_attempts",
+            "residual_assumptions",
+            "problem_verdict",
+            "pattern_action",
+            "introduction_or_expansion_gates",
+            "removal_or_collapse_gates",
+            "keep_evidence",
+            "represented_need_absent_obsolete_or_not_served_by_participants",
+            "no_required_boundary_is_lost_or_replacement_improves_it",
+        )
+    )
+    assert "no inspection record is blocked" in orchestration
+    assert "Zero candidates does not relax this formula" in normalized_orchestration
+    assert "complete handbook ID set" in orchestration
+    assert "Generic claims such as" in normalized_orchestration
+    assert "must not fill the missing proof" in normalized_orchestration
+    assert "surface_inventory" in orchestration
+    assert "source extents/objects" in orchestration
+    assert "source_extents_or_objects_read" in orchestration
+    assert (
+        "every deduplicated candidate has an independent Validator result"
+        in normalized_orchestration
+    )
+    assert "A filename, summary, diff hunk" in normalized_skill
+    assert "Load references by workflow stage" in skill
+    assert "Before returning any candidate" in skill
+    assert "before independent validation or adjudication" in normalized_skill
+    assert "V-01 Behavior" in rubric
+    assert "V-07 Test gap" in rubric
+    assert "D-01 Scope" in rubric
+    assert "D-08 Traceability" in rubric
+    assert "problem_verdict" in rubric
+    assert all(
+        proof_chain in rubric
+        for proof_chain in (
+            "Pattern introduce or expand",
+            "Pattern keep",
+            "Pattern remove or collapse",
+            "Pattern replace",
+        )
+    )
+    assert "untrusted review data" in normalized_skill
+    assert "candidate funnel counts" in normalized_contract
+    assert "missing, blocked, and unvalidated" in normalized_contract
+
+    assert all(
+        pattern in pattern_fit
+        for pattern in (
+            "**Adapter**",
+            "**Strategy**",
+            "**State**",
+            "**Factory**",
+            "**Builder**",
+            "**Command**",
+            "**Observer or event**",
+            "**Decorator**",
+            "**Proxy**",
+            "**Facade**",
+            "**Repository**",
+            "**Template Method or base class**",
+            "**Dependency injection boundary**",
+            "**CQRS, event sourcing, saga, or other system-level pattern**",
+        )
+    )
+    assert "no universal threshold decides the result" in normalized_pattern_fit
+    assert (
+        "underlying problem and the named-pattern judgment are separate"
+        in normalized_pattern_fit
+    )
+    assert "construction/lifecycle axis" in normalized_pattern_fit
+    assert all(
+        action in pattern_fit
+        for action in ("introduce", "expand", "remove", "collapse", "replace", "keep")
+    )
 
 
 def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() -> None:

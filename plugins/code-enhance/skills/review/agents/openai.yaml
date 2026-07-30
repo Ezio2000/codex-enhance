@@ -1,0 +1,10 @@
+interface:
+  display_name: "Review Code"
+  short_description: "Auditable, read-only multi-agent code review"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#C7793E"
+  default_prompt: "$code-enhance:review Please review my current development changes for correctness, code quality, architecture, and whether the abstractions are justified."
+
+policy:
+  allow_implicit_invocation: false

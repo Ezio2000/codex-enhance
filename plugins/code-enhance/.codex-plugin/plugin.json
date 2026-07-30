@@ -1,0 +1,41 @@
+{
+  "name": "code-enhance",
+  "version": "0.1.0",
+  "description": "Run check-by-check, evidence-driven, read-only code reviews through independent finder and validator agents.",
+  "author": {
+    "name": "Xie Ningjun",
+    "url": "https://github.com/Ezio2000"
+  },
+  "homepage": "https://github.com/Ezio2000/codex-enhance#readme",
+  "repository": "https://github.com/Ezio2000/codex-enhance",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "architecture",
+    "design-patterns",
+    "quality",
+    "multi-agent"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Code Enhance",
+    "shortDescription": "Auditable multi-agent code and architecture review.",
+    "longDescription": "Review repositories, development changes, and version evolution through three independent check-by-check handbooks followed by fresh evidence validation, with strict read-only behavior, complete coverage ledgers, and explicit resistance to over-design.",
+    "developerName": "Xie Ningjun",
+    "category": "Developer Tools",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.png",
+    "capabilities": [
+      "Read-only repository review",
+      "Independent multi-agent discovery and validation",
+      "Per-check inspection and coverage ledgers",
+      "Architecture and design-pattern judgment",
+      "Version evolution analysis"
+    ],
+    "defaultPrompt": [
+      "$code-enhance:review Please review the entire repository, focusing on code quality, architecture, and security.",
+      "$code-enhance:review Please review my latest development changes and identify verified risks.",
+      "$code-enhance:review Please compare v1.2.0, v1.3.0, and v2.0.0 and summarize the code-quality trend."
+    ]
+  }
+}
