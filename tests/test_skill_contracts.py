@@ -19,6 +19,8 @@ CODE_SPECIALTIES = (
     "design",
     "security",
 )
+CODE_REMOTE_SKILLS = ("embed", "index")
+CODE_SKILLS = CODE_SPECIALTIES + CODE_REMOTE_SKILLS
 CODE_SPECIALTY_CHECK_IDS = {
     "beautify": {f"BF-{number:02d}" for number in range(1, 6)},
     "simplify": {f"SM-{number:02d}" for number in range(1, 10)},
@@ -143,7 +145,7 @@ def test_marketplace_contains_all_enhance_plugins() -> None:
         "image-enhance": "ON_INSTALL",
         "video-enhance": "ON_USE",
         "model-enhance": "ON_USE",
-        "code-enhance": "ON_INSTALL",
+        "code-enhance": "ON_USE",
     }
 
     assert marketplace["name"] == "codex-enhance"
@@ -209,7 +211,7 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
         ("video-enhance", "create"),
         ("video-enhance", "analyze"),
         ("model-enhance", "consult"),
-        *(("code-enhance", skill_name) for skill_name in CODE_SPECIALTIES),
+        *(("code-enhance", skill_name) for skill_name in CODE_SKILLS),
     )
     code_skill_hashes: dict[str, str] = {}
 
@@ -239,11 +241,11 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
         if plugin_name == "code-enhance":
             code_skill_hashes[skill_name] = hashlib.sha256(small.tobytes()).hexdigest()
 
-    assert set(code_skill_hashes) == set(CODE_SPECIALTIES)
-    assert len(set(code_skill_hashes.values())) == len(CODE_SPECIALTIES)
+    assert set(code_skill_hashes) == set(CODE_SKILLS)
+    assert len(set(code_skill_hashes.values())) == len(CODE_SKILLS)
 
 
-def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None:
+def test_code_enhance_exposes_five_specialties_and_two_remote_skills() -> None:
     skills_root = CODE_PLUGIN_ROOT / "skills"
     readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
     manifest = json.loads(
@@ -260,15 +262,16 @@ def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None
         if path.is_file() and path.suffix in {".json", ".md", ".py", ".yaml"}
     )
 
-    assert skill_directories == set(CODE_SPECIALTIES)
+    assert skill_directories == set(CODE_SKILLS)
     assert not (skills_root / "review").exists()
     assert re.fullmatch(
-        r"0\.2\.0\+codex\.\d{14}",
+        r"0\.3\.0\+codex\.\d{14}",
         manifest["version"],
     )
     assert manifest["interface"]["displayName"] == "Code Enhance"
     assert manifest["interface"]["category"] == "Developer Tools"
-    assert not {"mcpServers", "hooks", "apps"} & manifest.keys()
+    assert manifest["mcpServers"] == "./.mcp.json"
+    assert not {"hooks", "apps"} & manifest.keys()
     assert "$code-enhance:review" not in f"{readme}\n{plugin_text}"
     assert all(
         legacy not in plugin_text
@@ -288,16 +291,22 @@ def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None
     for prompt in default_prompts:
         assert len(prompt) <= 128
         invocations = re.findall(r"\$code-enhance:([a-z-]+)", prompt)
-        assert 1 <= len(invocations) <= 2
+        assert 1 <= len(invocations) <= 3
         if len(invocations) == 1:
             assert prompt.startswith(f"Use $code-enhance:{invocations[0]} to ")
-        else:
+        elif len(invocations) == 2:
             assert prompt.startswith(
                 f"Use $code-enhance:{invocations[0]} and "
                 f"$code-enhance:{invocations[1]} to "
             )
+        else:
+            assert prompt.startswith(
+                f"Use $code-enhance:{invocations[0]}, "
+                f"$code-enhance:{invocations[1]}, and "
+                f"$code-enhance:{invocations[2]} to "
+            )
         manifest_prompt_skills.extend(invocations)
-    assert tuple(manifest_prompt_skills) == CODE_SPECIALTIES
+    assert tuple(manifest_prompt_skills) == CODE_REMOTE_SKILLS + CODE_SPECIALTIES
 
     for skill_name in CODE_SPECIALTIES:
         skill_root = skills_root / skill_name
@@ -340,6 +349,26 @@ def test_code_enhance_exposes_only_five_explicit_read_only_specialties() -> None
                 f"$code-enhance:{skill_name} --",
             )
         )
+
+    for skill_name in CODE_REMOTE_SKILLS:
+        skill_root = skills_root / skill_name
+        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+        metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
+        normalized = " ".join(skill.lower().split())
+
+        assert re.search(rf"^name: {skill_name}$", skill, flags=re.MULTILINE)
+        assert "allow_implicit_invocation: false" in metadata
+        assert re.search(
+            rf'^\s+default_prompt: "Use \$code-enhance:{skill_name}\b',
+            metadata,
+            flags=re.MULTILINE,
+        )
+        assert re.findall(r"\$code-enhance:([a-z-]+)", metadata) == [skill_name]
+        assert "volcano ark" in normalized
+        assert "explicit" in normalized
+        assert "remote" in normalized
+        assert "embedding_config_status" in skill
+        assert "review" in normalized
 
 
 def test_code_enhance_shares_coverage_deduplication_and_fresh_validation() -> None:
@@ -419,7 +448,9 @@ def test_code_enhance_scope_helper_is_shared_uv_locked_and_dependency_free() -> 
     )
     assert script.read_text(encoding="utf-8").startswith("# /// script")
     assert script.with_suffix(".py.lock").is_file()
-    assert not list(CODE_PLUGIN_ROOT.rglob("*.ps1"))
+    assert not [
+        path for path in CODE_PLUGIN_ROOT.rglob("*.ps1") if ".venv" not in path.parts
+    ]
     for skill_name in CODE_SPECIALTIES:
         skill = (CODE_PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(
             encoding="utf-8"
@@ -580,6 +611,50 @@ def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() 
         assert "*.py[cod]" in gitignore
 
 
+def test_code_enhance_mcp_launch_and_public_tool_contract() -> None:
+    manifest = json.loads(
+        (CODE_PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+    )
+    mcp_config = json.loads(
+        (CODE_PLUGIN_ROOT / ".mcp.json").read_text(encoding="utf-8")
+    )
+    server = mcp_config["mcpServers"]["code-enhance"]
+    project = tomllib.loads(
+        (CODE_PLUGIN_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    server_source = (
+        CODE_PLUGIN_ROOT / "src" / "code_enhance_mcp" / "server.py"
+    ).read_text(encoding="utf-8")
+
+    assert manifest["mcpServers"] == "./.mcp.json"
+    assert server["command"] == "uv"
+    assert server["args"] == [
+        "run",
+        "--locked",
+        "--no-dev",
+        "code-enhance-mcp",
+    ]
+    assert server["cwd"] == "."
+    assert server["default_tools_approval_mode"] == "prompt"
+    assert project["project"]["requires-python"] == ">=3.12,<3.14"
+    assert server_source.count("@mcp.tool(") == 4
+    assert {
+        name
+        for name in (
+            "embedding_config_status",
+            "embed_inputs",
+            "sync_code_index",
+            "search_code_index",
+        )
+        if re.search(rf"\n(?:async )?def {name}\(", server_source)
+    } == {
+        "embedding_config_status",
+        "embed_inputs",
+        "sync_code_index",
+        "search_code_index",
+    }
+
+
 def test_video_create_uses_one_serial_computer_use_worker_per_video() -> None:
     skill_root = PLUGINS_ROOT / "video-enhance" / "skills" / "create"
     skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
@@ -735,7 +810,7 @@ def test_video_create_frame_chains_stitched_segments_for_continuity() -> None:
 
 
 def test_mcp_plugin_versions_match_their_locked_projects() -> None:
-    for plugin_name in ("video-enhance", "model-enhance"):
+    for plugin_name in ("video-enhance", "model-enhance", "code-enhance"):
         plugin_root = PLUGINS_ROOT / plugin_name
         manifest = json.loads(
             (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
