@@ -1,14 +1,14 @@
 [project]
 name = "video-enhance-mcp"
-version = "0.2.1+codex.20260727171933"
-description = "Provider-extensible stdio MCP server for video understanding"
+version = "0.4.1+codex.20260731042234"
+description = "Provider-extensible video creation, stitching, and understanding workflows"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
 authors = [
     { name = "Xie Ningjun" },
 ]
-keywords = ["video", "analysis", "ocr", "mcp"]
+keywords = ["video", "generation", "stitching", "computer-use", "analysis", "ocr", "mcp"]
 dependencies = [
     "httpx[socks]>=0.28.1,<1",
     "imageio-ffmpeg>=0.6,<1",

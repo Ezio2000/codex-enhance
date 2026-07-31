@@ -686,7 +686,7 @@ wheels = [
 
 [[package]]
 name = "video-enhance-mcp"
-version = "0.2.1+codex.20260727171933"
+version = "0.4.1+codex.20260731042234"
 source = { editable = "." }
 dependencies = [
     { name = "httpx", extra = ["socks"] },

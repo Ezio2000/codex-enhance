@@ -1,0 +1,8 @@
+interface:
+  display_name: "Create Videos"
+  short_description: "Create and stitch videos with isolated workers"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  default_prompt: "Use $video-enhance:create google-flow to generate or stitch one budget-guarded final video in an isolated worker."
+policy:
+  allow_implicit_invocation: true

@@ -6,7 +6,7 @@ plugin can be installed independently:
 | Plugin | Skill | Purpose |
 | --- | --- | --- |
 | **Image Enhance** | `$image-enhance:create`, `$image-enhance:create-gif`, `$image-enhance:review` | Create raster images and animated GIFs through isolated workflows, and review image-heavy folders with labeled contact sheets. |
-| **Video Enhance** | `$video-enhance:analyze` | Inspect local videos and analyze visual content through a provider-extensible stdio MCP server. |
+| **Video Enhance** | `$video-enhance:create`, `$video-enhance:analyze` | Create and locally stitch provider videos through isolated Computer Use workers, then inspect or analyze local video content. |
 | **Model Enhance** | `$model-enhance:consult` | Ask a caller-selected OpenAI- or Anthropic-compatible model for a bounded second opinion. |
 | **Code Enhance** | `$code-enhance:beautify`, `$code-enhance:simplify`, `$code-enhance:standardize`, `$code-enhance:design`, `$code-enhance:security` | Run five explicit, read-only specialties for code aesthetics, simplification, performance and idioms, design boundaries, and security. |
 
@@ -114,6 +114,38 @@ sheets remain strict by default.
 Image Enhance requires the official `imagegen` skill and `view_image` tool.
 
 ## Video Enhance
+
+Create one or more Google Flow videos through isolated workers:
+
+```text
+$video-enhance:create google-flow model=omni-flash duration=10s aspect_ratio=16:9 count=2 max_credits=90
+```
+
+Every final video is forced to a separate Flow `x1` generation owned by one
+distinct leaf worker. Workers run serially because they share Safari and the
+dedicated `Video Enhance` Flow project. The root agent enforces one total
+credit budget across all videos and retries. A worker reads the live displayed
+Flow quote immediately before submission and notifies the root agent before
+clicking when the quote is missing, changed, or over budget.
+
+For one final video made from ordered generated clips, use `stitch=true` and
+`segments=<n>` or say so naturally. The same dedicated worker generates every
+segment serially as `x1`, then joins them locally at no additional Flow-credit
+cost. Compatible clips use verified stream-copy; incompatible clips use a
+high-quality normalized transcode. This is hard-cut assembly, not general
+editing of arbitrary existing videos. By default, the worker feeds each
+segment's final decoded frame into the next Flow segment as its start frame and
+continues the camera, character, and motion state instead of restarting the
+scene.
+
+The initial `google-flow` provider supports text-to-video, explicit ingredient
+images, and explicit start/end frames. It uses the installed
+`$computer-use:computer-use` skill and an existing Safari login; it never
+stores Google credentials, buys credits, upgrades a plan, or deletes existing
+Flow content. Chinese requests are converted to faithful English production
+prompts. Downloads are saved below `outputs/video-enhance/<run-id>/` by
+default and verified through `video_inspect`. Existing-video editing is not
+part of the create skill.
 
 Video Enhance exposes these MCP tools:
 
