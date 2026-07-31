@@ -1,3 +1,3 @@
-"""Provider-extensible video understanding over stdio MCP."""
+"""Provider-extensible video creation, stitching, inspection, and analysis."""
 
-__version__ = "0.2.1+codex.20260727171933"
+__version__ = "0.4.1+codex.20260731042234"

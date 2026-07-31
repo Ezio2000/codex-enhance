@@ -1,7 +1,7 @@
 {
   "name": "video-enhance",
-  "version": "0.2.1+codex.20260727171933",
-  "description": "Strengthen Codex video workflows with local inspection and provider-backed analysis.",
+  "version": "0.4.1+codex.20260731042234",
+  "description": "Strengthen Codex video workflows with isolated provider-backed creation, ordered local stitching, inspection, and analysis.",
   "author": {
     "name": "Xie Ningjun",
     "url": "https://github.com/Ezio2000"
@@ -11,6 +11,9 @@
   "license": "MIT",
   "keywords": [
     "video",
+    "generation",
+    "stitching",
+    "computer-use",
     "analysis",
     "ocr",
     "mcp"
@@ -18,18 +21,24 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Video Enhance",
-    "shortDescription": "Inspect and analyze local video files securely.",
-    "longDescription": "Inspect local video metadata and perform provider-backed video understanding with secure configuration, normalized visual proxies, timelines, OCR, and validated structured results.",
+    "shortDescription": "Create, inspect, and analyze videos securely.",
+    "longDescription": "Create and locally stitch provider-backed videos through isolated Computer Use workers with shared-budget enforcement, then inspect local video metadata or perform provider-backed video understanding with normalized visual proxies, timelines, OCR, and validated structured results.",
     "developerName": "Xie Ningjun",
     "category": "Productivity",
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/logo.png",
     "capabilities": [
+      "Isolated provider-backed video creation",
+      "Ordered zero-credit local video stitching",
+      "Last-frame to next-start-frame continuity",
+      "Shared credit-budget enforcement",
       "Local video inspection",
       "Provider-backed video analysis",
       "Timeline and screen OCR extraction"
     ],
     "defaultPrompt": [
+      "Use $video-enhance:create google-flow to generate one budget-guarded video in an isolated worker.",
+      "Use $video-enhance:create google-flow to generate ordered segments and stitch them into one final video.",
       "Use $video-enhance:analyze to inspect this video first, then analyze it with the most suitable profile.",
       "Extract a precise timeline and visible on-screen text from this video."
     ]

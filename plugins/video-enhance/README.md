@@ -1,8 +1,45 @@
 # Video Enhance
 
-一个面向 Codex 的视频检查与分析 Plugin，底层通过本机 stdio MCP 服务提供统一接口。核心层不依赖具体模型；当前只实现 MiniMax provider（MiniMax-M3），后续 provider 可通过 registry 增量加入。
+一个面向 Codex 的视频创建、检查与分析 Plugin。视频创建通过隔离的
+Computer Use 子代理操作 provider UI；检查与分析通过本机 stdio MCP
+服务提供统一接口。分析核心层不依赖具体模型；当前只实现 MiniMax
+provider（MiniMax-M3），后续 provider 可通过 registry 增量加入。
 
-通过 `$video-enhance:analyze` 调用技能。MCP 服务标识为 `video-enhance`，但公开工具名保持稳定：
+## 创建视频
+
+通过 `$video-enhance:create <provider>` 调用创建技能。v1 支持
+`google-flow`：
+
+```text
+$video-enhance:create google-flow model=omni-flash duration=10s aspect_ratio=16:9 count=2 max_credits=90
+```
+
+每个最终视频都会被拆成一个独立的 Flow `x1` 任务，由一个全新的叶子
+子代理负责。多个视频串行执行，避免同时操作 Safari。主代理维护整次调用
+的总积分预算；子代理会在最终生成按钮前读取页面实时费用，超出分配预算时
+先通知主代理并暂停。预算批准、用户接管和同一视频的一次重试都复用原子
+代理，不会把第二个视频交给它。
+
+若需要把新生成的多个片段拼成一条成片，可使用
+`stitch=true segments=<n>` 或直接用自然语言说明。例如“两段拼成一条”
+会解析为 `count=1 segments=2`，仍然只使用一个专属叶子代理。代理按顺序
+以 `x1` 生成并验证每段视频，再在本地硬切拼接；兼容流优先无重编码复制，
+不兼容时才执行高质量 H.264/AAC 规范化。拼接本身不消耗 Flow 积分，
+当前不包含转场、裁剪或任意已有视频编辑。连续叙事默认把上一段最终解码帧
+作为下一段 `start_frame`，同时延续人物、构图、镜头方向和运动状态；
+因此不会像简单重复视频那样在拼接点重置场景。
+
+默认复用名为 `Video Enhance` 的 Flow 项目。支持文生视频、明确标注的
+素材参考图和首尾帧；不支持编辑已有视频。运行时要求安装
+`$computer-use:computer-use`，并使用 Safari 中已有的 Google 登录。
+技能不保存凭据、不购买积分、不升级套餐、不删除已有 Flow 内容。生成的
+MP4 默认保存到当前工作区的 `outputs/video-enhance/<run-id>/`，并通过
+`video_inspect` 验证。
+
+## 分析视频
+
+通过 `$video-enhance:analyze` 调用分析技能。MCP 服务标识为
+`video-enhance`，但公开工具名保持稳定：
 
 ## 工具
 
