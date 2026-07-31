@@ -1,0 +1,10 @@
+interface:
+  display_name: "Index and Search Code"
+  short_description: "Build and search a remote-backed semantic code index"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#C7793E"
+  default_prompt: "Use $code-enhance:index to refresh and semantically search this repository."
+
+policy:
+  allow_implicit_invocation: false

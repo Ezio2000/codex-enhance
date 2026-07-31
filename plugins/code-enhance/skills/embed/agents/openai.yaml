@@ -1,0 +1,10 @@
+interface:
+  display_name: "Embed Text and Code"
+  short_description: "Generate remote text embeddings as JSON artifacts"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  brand_color: "#C7793E"
+  default_prompt: "Use $code-enhance:embed to embed selected text or repository files with Volcano Ark."
+
+policy:
+  allow_implicit_invocation: false

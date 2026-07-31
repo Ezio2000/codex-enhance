@@ -8,7 +8,7 @@ plugin can be installed independently:
 | **Image Enhance** | `$image-enhance:create`, `$image-enhance:create-gif`, `$image-enhance:review` | Create raster images and animated GIFs through isolated workflows, and review image-heavy folders with labeled contact sheets. |
 | **Video Enhance** | `$video-enhance:create`, `$video-enhance:analyze` | Create and locally stitch provider videos through isolated Computer Use workers, then inspect or analyze local video content. |
 | **Model Enhance** | `$model-enhance:consult` | Ask a caller-selected OpenAI- or Anthropic-compatible model for a bounded second opinion. |
-| **Code Enhance** | `$code-enhance:beautify`, `$code-enhance:simplify`, `$code-enhance:standardize`, `$code-enhance:design`, `$code-enhance:security` | Run five explicit, read-only specialties for code aesthetics, simplification, performance and idioms, design boundaries, and security. |
+| **Code Enhance** | `$code-enhance:beautify`, `$code-enhance:simplify`, `$code-enhance:standardize`, `$code-enhance:design`, `$code-enhance:security`, `$code-enhance:embed`, `$code-enhance:index` | Run five explicit read-only review specialties, create Volcano Ark embeddings, and build an external semantic code index. |
 
 All Python runtimes are managed and locked with
 [uv](https://docs.astral.sh/uv/). The MCP plugins run locally over stdio and
@@ -243,6 +243,49 @@ validation. A bare or ambiguous invocation asks one concise scope question.
 No specialty edits code, posts comments, commits changes, or writes a report
 into the reviewed repository.
 
+Code Enhance also provides two separately invoked Volcano Ark Coding Plan
+workflows. They never run automatically from the five review specialties:
+
+- `$code-enhance:embed` sends explicitly selected text or repository-local
+  UTF-8 files to the locked Coding Plan embedding endpoint and saves complete
+  1024-dimensional vectors as a JSON artifact outside the repository.
+- `$code-enhance:index` incrementally embeds safe code, tests, configuration,
+  and documentation into an external SQLite index, then supports
+  natural-language semantic search with hash-verified path and line results.
+
+```text
+$code-enhance:embed 将 src/auth.py 和这段设计说明生成向量 JSON。
+```
+
+```text
+$code-enhance:index 更新当前仓库索引，然后查找令牌校验和权限判断在哪里实现。
+```
+
+Both Skills are explicit because selected text is transmitted to Volcano Ark
+and consumes Coding Plan quota. They use only:
+
+```text
+Base URL: https://ark.cn-beijing.volces.com/api/coding/v3
+Model: doubao-embedding-vision
+Dimension: 1024
+```
+
+Do not substitute `https://ark.cn-beijing.volces.com/api/v3`; the Coding Plan
+console warns that the ordinary endpoint may incur additional charges.
+Configure the API key at:
+
+```text
+~/.config/code-enhance/config.toml
+```
+
+Copy `plugins/code-enhance/config.example.toml`, insert the Coding Plan API
+key, and restrict the file to mode `0600` on POSIX. `CODE_ENHANCE_CONFIG` can
+select another config path. Embedding artifacts and indexes default to
+`~/.cache/code-enhance/`; `CODE_ENHANCE_CACHE` can select another path, but it
+must remain outside the indexed repository. Keys, selected source text, and
+complete vectors are never returned in chat. The SQLite index stores vectors,
+hashes, paths, and line ranges without copying source text.
+
 ## Repository layout
 
 ```text
@@ -255,10 +298,11 @@ plugins/
 ```
 
 Image Enhance uses the repository-level development environment. Video
-Enhance and Model Enhance are self-contained Python projects with their own
-`pyproject.toml` and `uv.lock`, so their MCP dependency graphs stay isolated.
-Code Enhance uses a locked, standard-library-only scope helper and has no MCP,
-Hook, or external-model dependency.
+Enhance, Model Enhance, and Code Enhance are self-contained Python projects
+with their own `pyproject.toml` and `uv.lock`, so their MCP dependency graphs
+stay isolated. Code Enhance keeps its locked, standard-library-only scope
+helper for all review specialties and adds a local stdio MCP only for the
+explicit remote embedding and semantic-index Skills.
 
 ## Development
 
@@ -294,6 +338,10 @@ uv --directory plugins/video-enhance run --locked python scripts/stdio_smoke.py 
 uv --directory plugins/model-enhance sync --locked --python 3.12
 uv --directory plugins/model-enhance run --locked pytest
 uv --directory plugins/model-enhance run --locked python scripts/stdio_smoke.py --list-tools
+
+uv --directory plugins/code-enhance sync --locked --python 3.12
+uv --directory plugins/code-enhance run --locked pytest
+uv --directory plugins/code-enhance run --locked python scripts/stdio_smoke.py --list-tools
 ```
 
 Regenerate the relevant lock file whenever that project's dependency metadata
