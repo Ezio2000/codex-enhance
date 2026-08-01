@@ -102,7 +102,7 @@ wheels = [
 
 [[package]]
 name = "code-enhance-mcp"
-version = "0.3.0+codex.20260731073404"
+version = "0.3.0+codex.20260801123057"
 source = { editable = "." }
 dependencies = [
     { name = "httpx", extra = ["socks"] },

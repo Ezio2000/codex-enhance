@@ -1,6 +1,6 @@
 [project]
 name = "code-enhance-mcp"
-version = "0.3.0+codex.20260731073404"
+version = "0.3.0+codex.20260801123057"
 description = "Local stdio MCP server for Volcano Ark embeddings and semantic code indexing"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
