@@ -36,6 +36,18 @@ async def test_embed_writes_vectors_without_copying_source(
 
 
 @pytest.mark.asyncio
+async def test_embed_batches_at_provider_limit(settings, fake_client) -> None:
+    await embed_to_artifact(
+        settings,
+        [EmbedInput(id=f"item-{index}", text=f"text {index}") for index in range(11)],
+        repository=None,
+        client=fake_client,
+    )
+
+    assert [len(call) for call in fake_client.calls] == [10, 1]
+
+
+@pytest.mark.asyncio
 async def test_embed_file_requires_repository(settings, fake_client) -> None:
     with pytest.raises(InputError, match="repository is required"):
         await embed_to_artifact(
