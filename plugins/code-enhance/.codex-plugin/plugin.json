@@ -1,6 +1,6 @@
 {
   "name": "code-enhance",
-  "version": "0.3.0+codex.20260731073404",
+  "version": "0.3.0+codex.20260801123057",
   "description": "Run five explicit read-only code review specialties plus Volcano Ark text embedding and semantic repository indexing.",
   "author": {
     "name": "Xie Ningjun",

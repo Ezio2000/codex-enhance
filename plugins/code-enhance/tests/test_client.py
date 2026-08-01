@@ -36,11 +36,13 @@ async def test_calls_only_locked_openai_compatible_endpoint() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         assert str(request.url) == ARK_EMBEDDINGS_URL
         assert request.headers["authorization"] == "Bearer private-key"
+        assert request.headers["accept-encoding"] == "identity"
         body = json.loads(request.content)
         assert body == {
             "model": ARK_MODEL,
             "input": ["one", "two"],
             "encoding_format": "float",
+            "dimensions": EMBEDDING_DIMENSION,
         }
         return httpx.Response(
             200,

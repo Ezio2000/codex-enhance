@@ -51,6 +51,7 @@ class ArkEmbeddingClient:
             "model": ARK_MODEL,
             "input": texts,
             "encoding_format": "float",
+            "dimensions": EMBEDDING_DIMENSION,
         }
         response: httpx.Response | None = None
         for attempt in range(4):
@@ -66,6 +67,7 @@ class ArkEmbeddingClient:
                         ARK_EMBEDDINGS_URL,
                         headers={
                             "Accept": "application/json",
+                            "Accept-Encoding": "identity",
                             "Content-Type": "application/json",
                             "Authorization": f"Bearer {self._key}",
                             "User-Agent": "code-enhance-mcp/0.3.0",
