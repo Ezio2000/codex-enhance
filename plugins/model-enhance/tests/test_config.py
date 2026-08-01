@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from model_enhance_mcp.config import build_provider_settings
+from model_enhance_mcp.config import build_provider_settings, embedding_cache_root
 from model_enhance_mcp.errors import ConfigurationError
 
 
@@ -101,3 +101,14 @@ def test_rejects_malformed_ipv6_as_configuration_error() -> None:
             api_key="secret",
             model="model",
         )
+
+
+def test_embedding_cache_root_defaults_and_accepts_override(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("MODEL_ENHANCE_CACHE", raising=False)
+    assert embedding_cache_root().as_posix().endswith("/.cache/model-enhance")
+
+    override = tmp_path / "embedding-cache"
+    monkeypatch.setenv("MODEL_ENHANCE_CACHE", str(override))
+    assert embedding_cache_root() == override.resolve()

@@ -1,4 +1,4 @@
-"""Embedding artifact orchestration shared by MCP tools."""
+"""Embedding input orchestration and private JSON artifact writes."""
 
 from __future__ import annotations
 
@@ -10,17 +10,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from secrets import token_hex
 
-from .client import ArkEmbeddingClient
-from .config import Settings
-from .constants import (
-    ARK_MODEL,
-    BATCH_SIZE,
-    EMBEDDING_DIMENSION,
-    MAX_ITEM_CHARS,
-    MAX_ITEMS,
-    MAX_TOTAL_CHARS,
-)
-from .errors import InputError
+from .clients import CompatibleModelClient
+from .config import ProviderSettings, embedding_cache_root
+from .constants import BATCH_SIZE, MAX_ITEM_CHARS, MAX_ITEMS, MAX_TOTAL_CHARS
+from .errors import InputError, ProviderError
 from .files import read_repository_file, resolve_repository
 from .schemas import EmbedArtifactResult, EmbedInput, Usage
 
@@ -28,12 +21,14 @@ _SAFE_ID = re.compile(r"^[^\x00-\x1f\x7f]+$")
 
 
 async def embed_to_artifact(
-    settings: Settings,
+    provider: ProviderSettings,
     items: list[EmbedInput],
     *,
     repository: str | None,
-    client: ArkEmbeddingClient | None = None,
+    client: CompatibleModelClient | None = None,
 ) -> EmbedArtifactResult:
+    if provider.protocol != "openai":
+        raise InputError("Embedding requires protocol='openai'")
     if not 1 <= len(items) <= MAX_ITEMS:
         raise InputError(f"items must contain between 1 and {MAX_ITEMS} entries")
     identifiers = [item.id for item in items]
@@ -44,17 +39,17 @@ async def embed_to_artifact(
 
     root = resolve_repository(repository) if repository else None
     texts: list[str] = []
-    item_metadata: list[dict[str, str]] = []
+    metadata: list[dict[str, str]] = []
     for item in items:
         if item.text is not None:
             text = item.text
-            metadata = {"id": item.id, "source": "text"}
+            item_metadata = {"id": item.id, "source": "text"}
         else:
             if root is None or item.path is None:
                 raise InputError("repository is required for file inputs")
             local = read_repository_file(root, item.path)
             text = local.text
-            metadata = {
+            item_metadata = {
                 "id": item.id,
                 "source": "file",
                 "path": local.relative_path,
@@ -65,69 +60,75 @@ async def embed_to_artifact(
                 f"Input {item.id!r} exceeds the {MAX_ITEM_CHARS} character limit"
             )
         texts.append(text)
-        item_metadata.append(metadata)
+        metadata.append(item_metadata)
     if sum(len(text) for text in texts) > MAX_TOTAL_CHARS:
         raise InputError(
             f"Combined input exceeds the {MAX_TOTAL_CHARS} character limit"
         )
 
-    active_client = client or ArkEmbeddingClient(settings.api_key)
+    active_client = client or CompatibleModelClient(provider)
     vectors: list[list[float]] = []
     request_ids: list[str] = []
-    prompt_tokens = 0
-    total_tokens = 0
-    prompt_known = True
-    total_known = True
+    usages: list[Usage] = []
+    actual_model: str | None = None
+    dimension: int | None = None
     for offset in range(0, len(texts), BATCH_SIZE):
         batch = await active_client.embed(texts[offset : offset + BATCH_SIZE])
+        batch_dimension = len(batch.vectors[0])
+        if dimension is not None and dimension != batch_dimension:
+            raise ProviderError("Embedding dimensions changed between batches")
+        if actual_model is not None and actual_model != batch.model:
+            raise ProviderError("Embedding model changed between batches")
+        dimension = batch_dimension
+        actual_model = batch.model
         vectors.extend(batch.vectors)
+        usages.append(batch.usage)
         if batch.request_id:
             request_ids.append(batch.request_id)
-        if batch.usage.prompt_tokens is None:
-            prompt_known = False
-        else:
-            prompt_tokens += batch.usage.prompt_tokens
-        if batch.usage.total_tokens is None:
-            total_known = False
-        else:
-            total_tokens += batch.usage.total_tokens
 
-    artifact_dir = settings.cache_root / "embed"
+    if dimension is None or actual_model is None:
+        raise ProviderError("Embedding provider returned no vectors")
+    usage = _aggregate_usage(usages)
+    artifact_dir = embedding_cache_root() / "embeddings"
     _ensure_outside_repository(artifact_dir, root)
     artifact_dir.mkdir(parents=True, exist_ok=True)
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + token_hex(4)
     artifact_path = artifact_dir / f"{run_id}.json"
     payload = {
-        "schema": "code-enhance/embed-artifact/v1",
-        "model": ARK_MODEL,
-        "dimension": EMBEDDING_DIMENSION,
+        "schema": "model-enhance/embed-artifact/v1",
+        "protocol": "openai",
+        "model": actual_model,
+        "dimension": dimension,
         "request_ids": request_ids,
-        "usage": {
-            "prompt_tokens": prompt_tokens if prompt_known else None,
-            "total_tokens": total_tokens if total_known else None,
-        },
+        "usage": usage.model_dump(mode="json"),
         "data": [
-            {
-                **metadata,
-                "index": index,
-                "embedding": vector,
-            }
-            for index, (metadata, vector) in enumerate(
-                zip(item_metadata, vectors, strict=True)
+            {**item_metadata, "index": index, "embedding": vector}
+            for index, (item_metadata, vector) in enumerate(
+                zip(metadata, vectors, strict=True)
             )
         ],
     }
     _atomic_json_write(artifact_path, payload)
     return EmbedArtifactResult(
         artifact_path=str(artifact_path),
-        model=ARK_MODEL,
-        dimension=EMBEDDING_DIMENSION,
+        protocol="openai",
+        model=actual_model,
+        dimension=dimension,
         count=len(vectors),
         request_ids=request_ids,
-        usage=Usage(
-            prompt_tokens=prompt_tokens if prompt_known else None,
-            total_tokens=total_tokens if total_known else None,
-        ),
+        usage=usage,
+    )
+
+
+def _aggregate_usage(usages: list[Usage]) -> Usage:
+    def total(field: str) -> int | None:
+        values = [getattr(usage, field) for usage in usages]
+        return sum(values) if all(value is not None for value in values) else None
+
+    return Usage(
+        input_tokens=total("input_tokens"),
+        output_tokens=total("output_tokens"),
+        total_tokens=total("total_tokens"),
     )
 
 
@@ -135,7 +136,7 @@ def _ensure_outside_repository(path: Path, root: Path | None) -> None:
     resolved = path.resolve()
     if root is not None and (resolved == root or root in resolved.parents):
         raise InputError(
-            "CODE_ENHANCE_CACHE must resolve outside the indexed repository"
+            "MODEL_ENHANCE_CACHE must resolve outside the selected repository"
         )
 
 

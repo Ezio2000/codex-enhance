@@ -64,6 +64,25 @@ async def test_stdio_server_exposes_expected_tools(tmp_path: Path) -> None:
                         "api_key": oversized_key,
                     },
                 )
+                missing_embed_key = await session.call_tool(
+                    "embed_inputs",
+                    arguments={
+                        "protocol": "openai",
+                        "base_url": "https://router.example/v1",
+                        "model": "embed-model",
+                        "items": [{"id": "text", "text": "selected"}],
+                    },
+                )
+                oversized_embed = await session.call_tool(
+                    "embed_inputs",
+                    arguments={
+                        "protocol": "openai",
+                        "base_url": "https://router.example/v1",
+                        "api_key": oversized_key,
+                        "model": "embed-model",
+                        "items": [{"id": "text", "text": "selected"}],
+                    },
+                )
 
     tools = {tool.name: tool for tool in result.tools}
     assert initialization.serverInfo.icons is not None
@@ -77,12 +96,15 @@ async def test_stdio_server_exposes_expected_tools(tmp_path: Path) -> None:
         ["64x64"],
         ["1024x1024"],
     ]
-    assert set(tools) == {"ask_model", "list_models"}
+    assert set(tools) == {"ask_model", "embed_inputs", "list_models"}
     assert tools["ask_model"].annotations is not None
     assert tools["ask_model"].annotations.openWorldHint is True
     assert tools["ask_model"].annotations.readOnlyHint is False
     assert tools["list_models"].annotations is not None
     assert tools["list_models"].annotations.readOnlyHint is False
+    assert tools["embed_inputs"].annotations is not None
+    assert tools["embed_inputs"].annotations.readOnlyHint is False
+    assert tools["embed_inputs"].annotations.openWorldHint is True
     ask_schema = tools["ask_model"].inputSchema
     assert set(ask_schema["required"]) >= {
         "protocol",
@@ -97,14 +119,25 @@ async def test_stdio_server_exposes_expected_tools(tmp_path: Path) -> None:
         "base_url",
         "api_key",
     }
+    assert set(tools["embed_inputs"].inputSchema["required"]) >= {
+        "protocol",
+        "base_url",
+        "api_key",
+        "model",
+        "items",
+    }
+    assert tools["embed_inputs"].inputSchema["properties"]["api_key"]["writeOnly"]
     assert tools["ask_model"].outputSchema is not None
     assert "text" in tools["ask_model"].outputSchema.get("properties", {})
     assert tools["list_models"].outputSchema is not None
     assert "models" in tools["list_models"].outputSchema.get("properties", {})
+    assert tools["embed_inputs"].outputSchema is not None
+    assert "artifact_path" in tools["embed_inputs"].outputSchema.get("properties", {})
     assert missing_key.isError is True
+    assert missing_embed_key.isError is True
     assert blank_prompt.isError is True
     assert "sensitive-test-key" not in str(blank_prompt)
-    for failure in (oversized_ask, oversized_list):
+    for failure in (oversized_ask, oversized_list, oversized_embed):
         assert failure.isError is True
         assert "BEGIN_OVERSIZED_SECRET_" not in str(failure)
         assert "END_OVERSIZED_SECRET" not in str(failure)

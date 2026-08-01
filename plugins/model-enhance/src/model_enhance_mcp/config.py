@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -16,6 +18,7 @@ Vendor = Literal["generic", "minimax"]
 
 _MINIMAX_HOSTS = frozenset({"api.minimax.io", "api.minimaxi.com"})
 _LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+DEFAULT_CACHE_ROOT = Path.home() / ".cache" / "model-enhance"
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +30,14 @@ class ProviderSettings:
     auth_mode: AuthMode
     vendor: Vendor
     timeout_seconds: float = 180
+
+
+def embedding_cache_root() -> Path:
+    """Resolve the non-credential cache root used for embedding artifacts."""
+
+    override = os.environ.get("MODEL_ENHANCE_CACHE", "").strip()
+    selected = Path(override).expanduser() if override else DEFAULT_CACHE_ROOT
+    return selected.resolve()
 
 
 def build_provider_settings(

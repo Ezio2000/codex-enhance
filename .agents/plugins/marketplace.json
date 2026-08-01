@@ -39,18 +39,6 @@
         "authentication": "ON_USE"
       },
       "category": "Developer Tools"
-    },
-    {
-      "name": "code-enhance",
-      "source": {
-        "source": "local",
-        "path": "./plugins/code-enhance"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_USE"
-      },
-      "category": "Developer Tools"
     }
   ]
 }

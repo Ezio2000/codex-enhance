@@ -1,8 +1,9 @@
 # Model Enhance
 
 Codex Enhance 商城中的自包含插件，通过本地 STDIO MCP 把明确、有限的文本任务委派给
-OpenAI-compatible 或 Anthropic-compatible 模型。配套技能调用名为
-`$model-enhance:consult`。
+OpenAI-compatible 或 Anthropic-compatible 模型，并通过 OpenAI-compatible API 为选定
+文本或仓库文件生成 embedding artifact。配套技能为 `$model-enhance:consult` 和
+`$model-enhance:embed`。
 
 ```text
 Codex / ChatGPT Desktop ──stdio──> Model Enhance ──HTTPS──> compatible API
@@ -23,12 +24,12 @@ manifest 的 `apps` 字段。这是独立的发布阶段，不改变当前“本
 ## 凭据边界
 
 插件不从本地配置、环境变量或系统钥匙串加载供应商凭据，也不缓存 API Key。调用模型
-必须在每次 MCP 工具调用中显式提供：
+或 embedding 必须在每次 MCP 工具调用中显式提供：
 
 - `protocol`：`openai` 或 `anthropic`
 - `base_url`：本次请求的兼容 API 根地址
 - `api_key`：只用于本次请求
-- `model`：`ask_model` 使用的准确模型 ID
+- `model`：`ask_model` 或 `embed_inputs` 使用的准确模型 ID
 - `anthropic_auth_mode`：Anthropic 协议可选 `x-api-key`（默认）或 `bearer`
 
 `api_key` 在工具 JSON Schema 中标记为 `writeOnly`，上游成功和错误响应也会经过精确
@@ -36,7 +37,7 @@ manifest 的 `apps` 字段。这是独立的发布阶段，不改变当前“本
 时才把 Key 提供给调用模型。
 
 模型同时控制 `base_url` 和 Key。通用桥接器无法把任意公网域名与凭据做密码学绑定，
-也不是网络沙箱。两个工具都标记为非只读，必须逐次审批并核对目标地址；敏感内网环境还
+也不是网络沙箱。三个工具都标记为非只读，必须逐次审批并核对目标地址；敏感内网环境还
 应使用进程级网络策略或出口白名单。
 
 ## 工具
@@ -60,6 +61,30 @@ thinking/reasoning，也不执行上游模型请求的工具调用。
 
 使用本次调用提供的 `base_url` 和 `api_key` 查询上游模型列表。是否支持该接口取决于兼容
 服务商。
+
+### `embed_inputs`
+
+仅支持 `protocol=openai`，调用 `${base_url}/embeddings`。输入可以是显式文本，也可以是
+一个 Git 仓库内经过路径和敏感文件检查的 UTF-8 文件。完整向量不会返回到对话，而是
+原子写入：
+
+```text
+~/.cache/model-enhance/embeddings/
+```
+
+`MODEL_ENHANCE_CACHE` 可覆盖缓存根目录，但缓存不得位于所处理的仓库内。artifact 使用
+`model-enhance/embed-artifact/v1`，保存向量、输入 ID、文件路径与哈希、模型、动态推断的
+维度、用量和 request ID，不保存源文本或 API Key。
+
+```json
+{
+  "protocol": "openai",
+  "base_url": "https://api.example.com/v1",
+  "api_key": "<本次调用显式传入>",
+  "model": "provider-embedding-model",
+  "items": [{"id": "design", "text": "selected text"}]
+}
+```
 
 ## 安装
 
@@ -92,6 +117,7 @@ export MODEL_ENHANCE_LIVE_MODEL="provider-model-id"
 export MODEL_ENHANCE_LIVE_OPENAI_BASE_URL="https://api.example.com/v1"
 export MODEL_ENHANCE_LIVE_ANTHROPIC_BASE_URL="https://api.example.com/anthropic"
 export MODEL_ENHANCE_LIVE_ANTHROPIC_AUTH_MODE="x-api-key"
+export MODEL_ENHANCE_LIVE_EMBEDDING_MODEL="provider-embedding-model"
 MODEL_ENHANCE_RUN_LIVE_TESTS=1 uv run --locked pytest -m live
 ```
 

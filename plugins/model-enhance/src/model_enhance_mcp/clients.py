@@ -2,17 +2,30 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import math
 import re
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 from .config import ProviderSettings
+from .constants import MAX_RESPONSE_BYTES
 from .errors import ProviderError, redact
 from .schemas import ModelResult, Usage
 
 _LEADING_THINKING = re.compile(r"^\s*(?:<think>.*?</think>\s*)+", re.DOTALL)
+_RETRYABLE = frozenset({429, 502, 503, 504})
+
+
+@dataclass(frozen=True, slots=True)
+class EmbeddingBatch:
+    vectors: list[list[float]]
+    model: str
+    request_id: str | None
+    usage: Usage
 
 
 class CompatibleModelClient:
@@ -23,9 +36,11 @@ class CompatibleModelClient:
         settings: ProviderSettings,
         *,
         transport: httpx.AsyncBaseTransport | None = None,
+        sleep: Any = asyncio.sleep,
     ) -> None:
         self.settings = settings
         self._transport = transport
+        self._sleep = sleep
 
     async def ask(
         self,
@@ -67,6 +82,33 @@ class CompatibleModelClient:
             if isinstance(item, dict) and isinstance(item.get("id"), str)
         }
         return sorted(models)
+
+    async def embed(self, texts: list[str]) -> EmbeddingBatch:
+        if self.settings.protocol != "openai":
+            raise ProviderError("Embeddings require the OpenAI-compatible protocol")
+        if not texts:
+            raise ProviderError("Embedding request must contain at least one input")
+        payload, response = await self._request(
+            "POST",
+            f"{self.settings.base_url}/embeddings",
+            json_body={
+                "model": self.settings.model,
+                "input": texts,
+                "encoding_format": "float",
+            },
+            retry_transient=True,
+            max_response_bytes=MAX_RESPONSE_BYTES,
+        )
+        key = self.settings.api_key.get_secret_value()
+        return EmbeddingBatch(
+            vectors=_embedding_vectors(payload, expected=len(texts)),
+            model=(
+                _safe_optional_string(payload.get("model"), key)
+                or redact(self.settings.model, (key,))
+            ),
+            request_id=_safe_optional_string(_request_id(payload, response), key),
+            usage=_usage_from_openai(payload.get("usage")),
+        )
 
     async def _ask_openai(
         self,
@@ -212,12 +254,14 @@ class CompatibleModelClient:
         url: str,
         *,
         json_body: dict[str, Any] | None = None,
+        retry_transient: bool = False,
+        max_response_bytes: int | None = None,
     ) -> tuple[dict[str, Any], httpx.Response]:
         key = self.settings.api_key.get_secret_value()
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "model-enhance-mcp/0.1.0",
+            "User-Agent": "model-enhance-mcp/0.2.0",
         }
         if self.settings.protocol == "anthropic":
             headers["anthropic-version"] = "2023-06-01"
@@ -226,32 +270,55 @@ class CompatibleModelClient:
         else:
             headers["x-api-key"] = key
 
-        try:
-            async with httpx.AsyncClient(
-                timeout=self.settings.timeout_seconds,
-                follow_redirects=False,
-                trust_env=False,
-                transport=self._transport,
-            ) as client:
-                response = await client.request(
-                    method, url, headers=headers, json=json_body
-                )
-        except httpx.TimeoutException as exc:
+        attempts = 4 if retry_transient else 1
+        response: httpx.Response | None = None
+        for attempt in range(attempts):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=self.settings.timeout_seconds,
+                    follow_redirects=False,
+                    trust_env=False,
+                    transport=self._transport,
+                ) as client:
+                    response = await client.request(
+                        method, url, headers=headers, json=json_body
+                    )
+            except httpx.TimeoutException as exc:
+                if attempt + 1 < attempts:
+                    await self._sleep(2**attempt)
+                    continue
+                raise ProviderError(
+                    f"{self.settings.protocol} provider timed out after "
+                    f"{self.settings.timeout_seconds:g}s"
+                ) from exc
+            except httpx.HTTPError as exc:
+                detail = redact(str(exc), (key,))
+                raise ProviderError(
+                    f"{self.settings.protocol} provider connection failed: {detail}"
+                ) from exc
+            if response.status_code in _RETRYABLE and attempt + 1 < attempts:
+                await self._sleep(_retry_delay(response, attempt))
+                continue
+            break
+
+        if response is None:
             raise ProviderError(
-                f"{self.settings.protocol} provider timed out after "
-                f"{self.settings.timeout_seconds:g}s"
-            ) from exc
-        except httpx.HTTPError as exc:
-            detail = redact(str(exc), (key,))
-            raise ProviderError(
-                f"{self.settings.protocol} provider connection failed: {detail}"
-            ) from exc
+                f"{self.settings.protocol} provider returned no response"
+            )
 
         if response.is_redirect:
             raise ProviderError(
                 f"{self.settings.protocol} provider redirected HTTP "
                 f"{response.status_code}; redirects are disabled",
                 status_code=response.status_code,
+            )
+        if (
+            max_response_bytes is not None
+            and len(response.content) > max_response_bytes
+        ):
+            raise ProviderError(
+                f"{self.settings.protocol} provider response exceeded the "
+                f"{max_response_bytes // (1024 * 1024)} MiB limit"
             )
 
         try:
@@ -303,6 +370,45 @@ def _openai_text(content: Any) -> str:
     return "\n".join(parts)
 
 
+def _embedding_vectors(payload: dict[str, Any], *, expected: int) -> list[list[float]]:
+    data = payload.get("data")
+    if not isinstance(data, list) or len(data) != expected:
+        raise ProviderError(
+            "OpenAI-compatible embedding data count does not match the request"
+        )
+    ordered: list[tuple[int, list[float]]] = []
+    dimension: int | None = None
+    for fallback, item in enumerate(data):
+        if not isinstance(item, dict):
+            raise ProviderError("Embedding response contains an invalid data item")
+        index = item.get("index", fallback)
+        vector = item.get("embedding")
+        if (
+            not isinstance(index, int)
+            or isinstance(index, bool)
+            or not isinstance(vector, list)
+        ):
+            raise ProviderError("Embedding response contains an invalid vector")
+        if not vector:
+            raise ProviderError("Embedding vectors must not be empty")
+        converted: list[float] = []
+        for value in vector:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ProviderError("Embedding contains a non-numeric value")
+            number = float(value)
+            if not math.isfinite(number):
+                raise ProviderError("Embedding contains NaN or infinity")
+            converted.append(number)
+        if dimension is not None and dimension != len(converted):
+            raise ProviderError("Embedding response contains inconsistent dimensions")
+        dimension = len(converted)
+        ordered.append((index, converted))
+    ordered.sort(key=lambda pair: pair[0])
+    if [index for index, _ in ordered] != list(range(expected)):
+        raise ProviderError("Embedding indexes are missing or duplicated")
+    return [vector for _, vector in ordered]
+
+
 def _usage_from_openai(value: Any) -> Usage:
     if not isinstance(value, dict):
         return Usage()
@@ -351,8 +457,22 @@ def _safe_error_detail(payload: dict[str, Any], key: str) -> str:
 
 
 def _optional_int(value: Any) -> int | None:
-    return value if isinstance(value, int) and value >= 0 else None
+    return (
+        value
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        else None
+    )
 
 
 def _safe_optional_string(value: Any, key: str) -> str | None:
     return redact(value, (key,)) if isinstance(value, str) else None
+
+
+def _retry_delay(response: httpx.Response, attempt: int) -> float:
+    raw = response.headers.get("retry-after")
+    if raw:
+        try:
+            return min(max(float(raw), 0), 10)
+        except ValueError:
+            pass
+    return float(2**attempt)

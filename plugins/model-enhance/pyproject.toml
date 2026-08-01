@@ -1,7 +1,7 @@
 [project]
 name = "model-enhance-mcp"
-version = "0.1.1+codex.20260727171933"
-description = "Secure local stdio MCP server for consulting compatible external models"
+version = "0.2.0+codex.20260801160022"
+description = "Secure local stdio MCP server for compatible model calls and embedding artifacts"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = "MIT"
@@ -11,6 +11,7 @@ authors = [
 keywords = [
     "models",
     "consultation",
+    "embeddings",
     "openai-compatible",
     "anthropic-compatible",
     "mcp",

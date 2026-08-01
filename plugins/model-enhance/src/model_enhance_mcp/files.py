@@ -1,4 +1,4 @@
-"""Safe local text-file resolution."""
+"""Safe repository-local text-file resolution for embedding inputs."""
 
 from __future__ import annotations
 
@@ -28,13 +28,11 @@ _SENSITIVE_SUFFIXES = frozenset(
 _PRIVATE_KEY = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class LocalTextFile:
     relative_path: str
-    absolute_path: Path
     text: str
     file_hash: str
-    size: int
 
 
 def resolve_repository(value: str) -> Path:
@@ -48,16 +46,6 @@ def resolve_repository(value: str) -> Path:
     if process.returncode != 0:
         raise InputError(f"Not a Git repository: {candidate}")
     return Path(process.stdout.strip()).resolve()
-
-
-def resolve_scope_path(root: Path, value: str | None) -> tuple[Path, str]:
-    requested = (root / value).resolve() if value else root
-    if requested != root and root not in requested.parents:
-        raise InputError(f"Scope path is outside the repository: {requested}")
-    if not requested.exists():
-        raise InputError(f"Scope path does not exist: {requested}")
-    relative = "." if requested == root else requested.relative_to(root).as_posix()
-    return requested, relative
 
 
 def read_repository_file(root: Path, value: str) -> LocalTextFile:
@@ -86,10 +74,8 @@ def read_repository_file(root: Path, value: str) -> LocalTextFile:
         raise InputError(f"Refusing file containing a private key: {relative}")
     return LocalTextFile(
         relative_path=relative,
-        absolute_path=path,
         text=text,
         file_hash=hashlib.sha256(raw).hexdigest(),
-        size=size,
     )
 
 

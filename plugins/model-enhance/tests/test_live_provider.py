@@ -84,3 +84,56 @@ async def test_compatible_provider_live(
     assert marker in result.structuredContent["text"]
     assert result.structuredContent["protocol"] == protocol
     assert result.structuredContent["request_id"]
+
+
+@pytest.mark.live
+async def test_openai_embedding_provider_live(tmp_path: Path) -> None:
+    if os.environ.get("MODEL_ENHANCE_RUN_LIVE_TESTS") != "1":
+        pytest.skip("set MODEL_ENHANCE_RUN_LIVE_TESTS=1 to call a real provider")
+
+    base_url = _route_value("openai", "BASE_URL")
+    api_key = _route_value("openai", "API_KEY")
+    model = _route_value("openai", "EMBEDDING_MODEL")
+    missing = [
+        name
+        for name, value in {
+            "OPENAI_BASE_URL": base_url,
+            "OPENAI_API_KEY": api_key,
+            "OPENAI_EMBEDDING_MODEL": model,
+        }.items()
+        if not value
+    ]
+    if missing:
+        pytest.skip(f"embedding live route is not configured: {', '.join(missing)}")
+
+    child_env = dict(os.environ)
+    child_env["MODEL_ENHANCE_CACHE"] = str(tmp_path / "cache")
+    parameters = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "model_enhance_mcp.server"],
+        env=child_env,
+    )
+    with (tmp_path / "embedding.stderr").open("w+") as stderr:
+        async with stdio_client(parameters, errlog=stderr) as (
+            read_stream,
+            write_stream,
+        ):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
+                result = await session.call_tool(
+                    "embed_inputs",
+                    arguments={
+                        "protocol": "openai",
+                        "base_url": base_url,
+                        "api_key": api_key,
+                        "model": model,
+                        "items": [{"id": "live", "text": "embedding smoke test"}],
+                    },
+                )
+
+    assert result.isError is False
+    assert result.structuredContent is not None
+    artifact = Path(result.structuredContent["artifact_path"])
+    assert artifact.is_file()
+    assert result.structuredContent["protocol"] == "openai"
+    assert result.structuredContent["dimension"] > 0

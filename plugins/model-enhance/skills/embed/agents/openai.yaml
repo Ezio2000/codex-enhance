@@ -1,0 +1,8 @@
+interface:
+  display_name: "Embed Selected Content"
+  short_description: "Create compatible embeddings as a private JSON artifact"
+  icon_small: "./assets/icon-small.png"
+  icon_large: "./assets/icon-large.png"
+  default_prompt: "Use $model-enhance:embed to embed selected text or repository files with my compatible endpoint."
+policy:
+  allow_implicit_invocation: true
