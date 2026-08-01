@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import tomllib
@@ -11,23 +10,6 @@ from PIL import Image
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 PLUGINS_ROOT = REPOSITORY_ROOT / "plugins"
 IMAGE_PLUGIN_ROOT = PLUGINS_ROOT / "image-enhance"
-CODE_PLUGIN_ROOT = PLUGINS_ROOT / "code-enhance"
-CODE_SPECIALTIES = (
-    "beautify",
-    "simplify",
-    "standardize",
-    "design",
-    "security",
-)
-CODE_REMOTE_SKILLS = ("embed", "index")
-CODE_SKILLS = CODE_SPECIALTIES + CODE_REMOTE_SKILLS
-CODE_SPECIALTY_CHECK_IDS = {
-    "beautify": {f"BF-{number:02d}" for number in range(1, 6)},
-    "simplify": {f"SM-{number:02d}" for number in range(1, 10)},
-    "standardize": {f"ST-{number:02d}" for number in range(1, 9)},
-    "design": {f"DS-{number:02d}" for number in range(1, 14)},
-    "security": {f"SE-{number:02d}" for number in range(1, 10)},
-}
 
 
 def test_create_allows_implicit_invocation_and_worker_prompt_is_non_recursive() -> None:
@@ -139,13 +121,11 @@ def test_marketplace_contains_all_enhance_plugins() -> None:
         "image-enhance",
         "video-enhance",
         "model-enhance",
-        "code-enhance",
     }
     expected_authentication = {
         "image-enhance": "ON_INSTALL",
         "video-enhance": "ON_USE",
         "model-enhance": "ON_USE",
-        "code-enhance": "ON_USE",
     }
 
     assert marketplace["name"] == "codex-enhance"
@@ -176,7 +156,6 @@ def test_plugin_icons_are_pixel_art_on_pure_white() -> None:
         "image-enhance",
         "video-enhance",
         "model-enhance",
-        "code-enhance",
     ):
         plugin_root = PLUGINS_ROOT / plugin_name
         manifest = json.loads(
@@ -211,9 +190,8 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
         ("video-enhance", "create"),
         ("video-enhance", "analyze"),
         ("model-enhance", "consult"),
-        *(("code-enhance", skill_name) for skill_name in CODE_SKILLS),
+        ("model-enhance", "embed"),
     )
-    code_skill_hashes: dict[str, str] = {}
 
     for plugin_name, skill_name in skills:
         skill_root = PLUGINS_ROOT / plugin_name / "skills" / skill_name
@@ -238,323 +216,30 @@ def test_skill_icons_are_character_related_pixel_art() -> None:
             small.getpixel(point) == (255, 255, 255)
             for point in ((0, 0), (63, 0), (0, 63), (63, 63))
         )
-        if plugin_name == "code-enhance":
-            code_skill_hashes[skill_name] = hashlib.sha256(small.tobytes()).hexdigest()
-
-    assert set(code_skill_hashes) == set(CODE_SKILLS)
-    assert len(set(code_skill_hashes.values())) == len(CODE_SKILLS)
 
 
-def test_code_enhance_exposes_five_specialties_and_two_remote_skills() -> None:
-    skills_root = CODE_PLUGIN_ROOT / "skills"
-    readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+def test_model_enhance_embed_skill_and_public_tool_contract() -> None:
+    plugin_root = PLUGINS_ROOT / "model-enhance"
+    skill_root = plugin_root / "skills" / "embed"
+    skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
+    metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
     manifest = json.loads(
-        (CODE_PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
+        (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
     )
-    skill_directories = {
-        path.name
-        for path in skills_root.iterdir()
-        if path.is_dir() and (path / "SKILL.md").is_file()
-    }
-    plugin_text = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in CODE_PLUGIN_ROOT.rglob("*")
-        if path.is_file() and path.suffix in {".json", ".md", ".py", ".yaml"}
-    )
-
-    assert skill_directories == set(CODE_SKILLS)
-    assert not (skills_root / "review").exists()
-    assert re.fullmatch(
-        r"0\.3\.0\+codex\.\d{14}",
-        manifest["version"],
-    )
-    assert manifest["interface"]["displayName"] == "Code Enhance"
-    assert manifest["interface"]["category"] == "Developer Tools"
-    assert manifest["mcpServers"] == "./.mcp.json"
-    assert not {"hooks", "apps"} & manifest.keys()
-    assert "$code-enhance:review" not in f"{readme}\n{plugin_text}"
-    assert all(
-        legacy not in plugin_text
-        for legacy in (
-            "Behavior & Safety",
-            "Code Craft",
-            "Architecture & Evolution",
-            "BS-01",
-            "CC-01",
-            "AE-01",
-        )
-    )
-
-    default_prompts = manifest["interface"]["defaultPrompt"]
-    assert 1 <= len(default_prompts) <= 3
-    manifest_prompt_skills: list[str] = []
-    for prompt in default_prompts:
-        assert len(prompt) <= 128
-        invocations = re.findall(r"\$code-enhance:([a-z-]+)", prompt)
-        assert 1 <= len(invocations) <= 3
-        if len(invocations) == 1:
-            assert prompt.startswith(f"Use $code-enhance:{invocations[0]} to ")
-        elif len(invocations) == 2:
-            assert prompt.startswith(
-                f"Use $code-enhance:{invocations[0]} and "
-                f"$code-enhance:{invocations[1]} to "
-            )
-        else:
-            assert prompt.startswith(
-                f"Use $code-enhance:{invocations[0]}, "
-                f"$code-enhance:{invocations[1]}, and "
-                f"$code-enhance:{invocations[2]} to "
-            )
-        manifest_prompt_skills.extend(invocations)
-    assert tuple(manifest_prompt_skills) == CODE_REMOTE_SKILLS + CODE_SPECIALTIES
-
-    for skill_name in CODE_SPECIALTIES:
-        skill_root = skills_root / skill_name
-        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-        metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
-        normalized = " ".join(skill.lower().split())
-
-        assert re.search(rf"^name: {skill_name}$", skill, flags=re.MULTILINE)
-        assert "allow_implicit_invocation: false" in metadata
-        assert re.search(
-            rf'^\s+default_prompt: "Use \$code-enhance:{skill_name}\b',
-            metadata,
-            flags=re.MULTILINE,
-        )
-        assert re.findall(r"\$code-enhance:([a-z-]+)", metadata) == [skill_name]
-        assert "strictly read-only" in normalized
-        assert "natural-language request" in normalized
-        assert "exactly one concise" in normalized
-        assert "../../scripts/review_scope.py" in skill
-        assert "directory" in normalized
-        assert "current development" in normalized
-        assert any(
-            marker in normalized
-            for marker in ("historical comparison", "comparisons between named")
-        )
-        assert any(
-            marker in normalized
-            for marker in (
-                "ordinary correctness",
-                "behavior-correctness",
-                "exclude correctness",
-            )
-        )
-        assert all(
-            forbidden not in f"{skill}\n{metadata}"
-            for forbidden in (
-                f"$code-enhance:{skill_name} repo",
-                f"$code-enhance:{skill_name} latest",
-                f"$code-enhance:{skill_name} versions",
-                f"$code-enhance:{skill_name} --",
-            )
-        )
-
-    for skill_name in CODE_REMOTE_SKILLS:
-        skill_root = skills_root / skill_name
-        skill = (skill_root / "SKILL.md").read_text(encoding="utf-8")
-        metadata = (skill_root / "agents" / "openai.yaml").read_text(encoding="utf-8")
-        normalized = " ".join(skill.lower().split())
-
-        assert re.search(rf"^name: {skill_name}$", skill, flags=re.MULTILINE)
-        assert "allow_implicit_invocation: false" in metadata
-        assert re.search(
-            rf'^\s+default_prompt: "Use \$code-enhance:{skill_name}\b',
-            metadata,
-            flags=re.MULTILINE,
-        )
-        assert re.findall(r"\$code-enhance:([a-z-]+)", metadata) == [skill_name]
-        assert "volcano ark" in normalized
-        assert "explicit" in normalized
-        assert "remote" in normalized
-        assert "embedding_config_status" in skill
-        assert "review" in normalized
-
-
-def test_code_enhance_shares_coverage_deduplication_and_fresh_validation() -> None:
-    references = CODE_PLUGIN_ROOT / "references"
-    orchestration = (references / "orchestration.md").read_text(encoding="utf-8")
-    contract = (references / "finding-contract.md").read_text(encoding="utf-8")
-    rubric = (references / "review-rubric.md").read_text(encoding="utf-8")
-    normalized_orchestration = " ".join(orchestration.split())
-    normalized_contract = " ".join(contract.split())
-    combined = "\n".join((orchestration, contract, rubric))
-
-    assert "neutral context pack" in orchestration
-    assert "resolve scope once" in orchestration.lower()
-    assert 'fork_turns: "none"' in orchestration
-    assert "fresh Validator" in orchestration
-    assert "cannot spawn agents" in orchestration
-    assert "invoke Skills" in orchestration
-    assert "root cause + affected symbol/boundary/contract + change axis" in combined
-    assert "primary_review_kind" in combined
-    assert "related_review_kinds" in combined
-    assert "Exactly one `primary_review_kind` is required" in contract
-    assert "A single root cause produces one candidate" in orchestration
-    assert "Zero candidates does not relax this formula" in normalized_orchestration
-    assert (
-        "A candidate without a fresh Validator result is not reportable"
-        in normalized_orchestration
-    )
-    assert "ordinary behavior correctness" in contract.lower()
-    assert "not independently reportable" in normalized_contract
-    assert all(f"V-{number:02d}" in rubric for number in range(1, 9))
-    assert all(
-        field in contract
-        for field in (
-            "inspection_id",
-            "review_kind",
-            "check_id",
-            "applicability_triggers_checked",
-            "artifacts_searched",
-            "files_and_symbols_read",
-            "source_extents_or_objects_read",
-            "context_read",
-            "inspection_action",
-            "disconfirming_evidence",
-            "verification_attempts",
-            "scope_origin",
-            "proof_chain",
-            "primary_review_kind",
-            "related_review_kinds",
-            "independent_context_read",
-            "independent_reconstruction",
-            "falsification_hypotheses",
-            "falsification_attempts",
-            "residual_assumptions",
-            "specialty_gate_results",
-            "verdict: Confirmed | Supported | Rejected",
-        )
-    )
-
-    for skill_name in CODE_SPECIALTIES:
-        skill = (CODE_PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(
-            encoding="utf-8"
-        )
-        assert "](../../references/orchestration.md)" in skill
-        assert "](../../references/finding-contract.md)" in skill
-        assert "](../../references/review-rubric.md)" in skill
-        assert 'fork_turns: "none"' in skill
-        assert re.search(r"fresh (?:isolated )?Validator", skill, flags=re.IGNORECASE)
-        assert "primary_review_kind" in skill
-        assert "related_review_kinds" in skill
-
-
-def test_code_enhance_scope_helper_is_shared_uv_locked_and_dependency_free() -> None:
-    script = CODE_PLUGIN_ROOT / "scripts" / "review_scope.py"
-
-    assert script == (
-        REPOSITORY_ROOT / "plugins" / "code-enhance" / "scripts" / "review_scope.py"
-    )
-    assert script.read_text(encoding="utf-8").startswith("# /// script")
-    assert script.with_suffix(".py.lock").is_file()
-    assert not [
-        path for path in CODE_PLUGIN_ROOT.rglob("*.ps1") if ".venv" not in path.parts
-    ]
-    for skill_name in CODE_SPECIALTIES:
-        skill = (CODE_PLUGIN_ROOT / "skills" / skill_name / "SKILL.md").read_text(
-            encoding="utf-8"
-        )
-        assert "../../scripts/review_scope.py" in skill
-
-
-def test_code_enhance_handbooks_have_unique_complete_check_matrices() -> None:
-    all_ids: list[str] = []
-    for skill_name, expected_ids in CODE_SPECIALTY_CHECK_IDS.items():
-        handbook = (
-            CODE_PLUGIN_ROOT / "skills" / skill_name / "references" / "handbook.md"
-        ).read_text(encoding="utf-8")
-        handbook_ids = re.findall(
-            r"^(?:#{2,4}\s+|\|\s+`)((?:BF|SM|ST|DS|SE)-(?:S)?\d{2})\b",
-            handbook,
-            flags=re.MULTILINE,
-        )
-
-        expected_with_supplements = set(expected_ids)
-        if skill_name == "security":
-            expected_with_supplements |= {f"SE-S{number:02d}" for number in range(1, 8)}
-        assert set(handbook_ids) == expected_with_supplements
-        assert len(handbook_ids) == len(set(handbook_ids))
-        all_ids.extend(handbook_ids)
-        assert "checked_clear | candidate | not_applicable | blocked" in handbook
-        assert "blocked" in handbook
-    assert len(all_ids) == len(set(all_ids))
-
-
-def test_code_enhance_design_alone_owns_pattern_fitness_guidance() -> None:
-    pattern_fit_path = (
-        CODE_PLUGIN_ROOT / "skills" / "design" / "references" / "pattern-fit.md"
-    )
-    pattern_files = set(CODE_PLUGIN_ROOT.glob("skills/*/references/pattern-fit.md"))
-
-    assert pattern_files == {pattern_fit_path}
-    pattern_fit = pattern_fit_path.read_text(encoding="utf-8")
-    design_skill = (CODE_PLUGIN_ROOT / "skills" / "design" / "SKILL.md").read_text(
+    server = (plugin_root / "src" / "model_enhance_mcp" / "server.py").read_text(
         encoding="utf-8"
     )
-    assert "pattern-fit.md" in design_skill
-    for skill_name in set(CODE_SPECIALTIES) - {"design"}:
-        specialty_text = "\n".join(
-            path.read_text(encoding="utf-8")
-            for path in (CODE_PLUGIN_ROOT / "skills" / skill_name).rglob("*.md")
-        )
-        assert "pattern-fit.md" not in specialty_text
 
-    assert "Mandatory three-option comparison" in pattern_fit
-    assert "underlying problem and the named-pattern judgment are separate" in (
-        " ".join(pattern_fit.split())
+    assert skill.startswith("---\nname: embed\n")
+    assert "$model-enhance:embed" in metadata
+    assert "allow_implicit_invocation: true" in metadata
+    assert "embed_inputs" in skill
+    assert "protocol=openai" in skill
+    assert any(
+        "$model-enhance:embed" in prompt
+        for prompt in manifest["interface"]["defaultPrompt"]
     )
-    assert all(
-        action in pattern_fit
-        for action in ("introduce", "expand", "remove", "collapse", "replace", "keep")
-    )
-
-
-def test_code_enhance_performance_and_security_evidence_gates_are_strict() -> None:
-    rubric = (CODE_PLUGIN_ROOT / "references" / "review-rubric.md").read_text(
-        encoding="utf-8"
-    )
-    standardize = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (
-            CODE_PLUGIN_ROOT / "skills" / "standardize" / "SKILL.md",
-            CODE_PLUGIN_ROOT / "skills" / "standardize" / "references" / "handbook.md",
-        )
-    )
-    security = "\n".join(
-        path.read_text(encoding="utf-8")
-        for path in (
-            CODE_PLUGIN_ROOT / "skills" / "security" / "SKILL.md",
-            CODE_PLUGIN_ROOT / "skills" / "security" / "references" / "handbook.md",
-        )
-    )
-    normalized_standardize = " ".join(standardize.split())
-    normalized_security = " ".join(security.split())
-
-    assert "ordinary correctness" in rubric
-    assert all(
-        evidence in normalized_standardize
-        for evidence in (
-            "reachable workload",
-            "before/after cost model",
-            "benchmark",
-            "profile",
-            "query plan",
-            "material user, latency, throughput, memory, I/O, or capacity impact",
-        )
-    )
-    assert "might be faster" in normalized_standardize
-    assert all(
-        link in normalized_security
-        for link in (
-            "attacker capability",
-            "attacker-controlled source",
-            "missing or bypassable controls",
-            "sensitive operation, sink, or asset",
-            "practical confidentiality, integrity, or availability impact",
-        )
-    )
-    assert "When any link is unknown or merely hypothetical" in normalized_security
+    assert re.search(r"\nasync def embed_inputs\(", server)
 
 
 def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() -> None:
@@ -609,50 +294,6 @@ def test_mcp_plugins_follow_enhance_naming_and_cross_platform_launch_contract() 
         assert ".venv/" in gitignore
         assert "__pycache__/" in gitignore
         assert "*.py[cod]" in gitignore
-
-
-def test_code_enhance_mcp_launch_and_public_tool_contract() -> None:
-    manifest = json.loads(
-        (CODE_PLUGIN_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")
-    )
-    mcp_config = json.loads(
-        (CODE_PLUGIN_ROOT / ".mcp.json").read_text(encoding="utf-8")
-    )
-    server = mcp_config["mcpServers"]["code-enhance"]
-    project = tomllib.loads(
-        (CODE_PLUGIN_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    )
-    server_source = (
-        CODE_PLUGIN_ROOT / "src" / "code_enhance_mcp" / "server.py"
-    ).read_text(encoding="utf-8")
-
-    assert manifest["mcpServers"] == "./.mcp.json"
-    assert server["command"] == "uv"
-    assert server["args"] == [
-        "run",
-        "--locked",
-        "--no-dev",
-        "code-enhance-mcp",
-    ]
-    assert server["cwd"] == "."
-    assert server["default_tools_approval_mode"] == "prompt"
-    assert project["project"]["requires-python"] == ">=3.12,<3.14"
-    assert server_source.count("@mcp.tool(") == 4
-    assert {
-        name
-        for name in (
-            "embedding_config_status",
-            "embed_inputs",
-            "sync_code_index",
-            "search_code_index",
-        )
-        if re.search(rf"\n(?:async )?def {name}\(", server_source)
-    } == {
-        "embedding_config_status",
-        "embed_inputs",
-        "sync_code_index",
-        "search_code_index",
-    }
 
 
 def test_video_create_uses_one_serial_computer_use_worker_per_video() -> None:
@@ -810,7 +451,7 @@ def test_video_create_frame_chains_stitched_segments_for_continuity() -> None:
 
 
 def test_mcp_plugin_versions_match_their_locked_projects() -> None:
-    for plugin_name in ("video-enhance", "model-enhance", "code-enhance"):
+    for plugin_name in ("video-enhance", "model-enhance"):
         plugin_root = PLUGINS_ROOT / plugin_name
         manifest = json.loads(
             (plugin_root / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8")

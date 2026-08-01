@@ -27,7 +27,7 @@ async def run(*, list_tools: bool) -> None:
         await session.initialize()
         tools = await session.list_tools()
         names = {item.name for item in tools.tools}
-        expected = {"ask_model", "list_models"}
+        expected = {"ask_model", "embed_inputs", "list_models"}
         if names != expected:
             expected_names = sorted(expected)
             actual_names = sorted(names)

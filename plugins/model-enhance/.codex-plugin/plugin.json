@@ -1,7 +1,7 @@
 {
   "name": "model-enhance",
-  "version": "0.1.1+codex.20260727171933",
-  "description": "Consult OpenAI- or Anthropic-compatible models through a secure local stdio MCP server.",
+  "version": "0.2.0+codex.20260801160022",
+  "description": "Consult compatible models and create OpenAI-compatible embedding artifacts through a secure local stdio MCP server.",
   "author": {
     "name": "Xie Ningjun",
     "url": "https://github.com/Ezio2000"
@@ -12,6 +12,7 @@
   "keywords": [
     "models",
     "consultation",
+    "embeddings",
     "openai-compatible",
     "anthropic-compatible",
     "mcp"
@@ -20,19 +21,20 @@
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Model Enhance",
-    "shortDescription": "Consult compatible external models securely.",
-    "longDescription": "Adds a secure local Model Context Protocol server for bounded consultation, independent review, response comparison, and compatible model discovery.",
+    "shortDescription": "Consult models and create embedding artifacts securely.",
+    "longDescription": "Adds a secure local Model Context Protocol server for bounded consultation, compatible model discovery, and private JSON embedding artifacts from explicitly selected text or repository files.",
     "developerName": "Xie Ningjun",
     "category": "Developer Tools",
     "composerIcon": "./assets/icon.png",
     "logo": "./assets/logo.png",
     "capabilities": [
       "MCP server",
-      "External model delegation"
+      "External model delegation",
+      "OpenAI-compatible embeddings"
     ],
     "defaultPrompt": [
       "Use $model-enhance:consult to review this implementation.",
-      "Use $model-enhance:consult to compare this answer.",
+      "Use $model-enhance:embed to embed selected text or repository files.",
       "Use $model-enhance:consult to list available models."
     ]
   }

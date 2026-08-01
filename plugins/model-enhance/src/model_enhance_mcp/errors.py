@@ -22,6 +22,10 @@ class ProviderError(ModelEnhanceError):
         self.status_code = status_code
 
 
+class InputError(ModelEnhanceError):
+    """Selected embedding input or output location is unsafe or invalid."""
+
+
 _TOKEN_PATTERNS = (
     re.compile(r"sk-[A-Za-z0-9._~-]+"),
     re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+"),
